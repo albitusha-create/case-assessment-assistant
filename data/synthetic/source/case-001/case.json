@@ -1,0 +1,94 @@
+{
+  "case_id": "case-001",
+  "assessment_type": "initial_assessment",
+  "start_date": "2026-10-05",
+  "summary": "Adult referred by primary care for low mood and housing instability.",
+  "part2_documents": [],
+  "planted_issues": [],
+  "expected_facts": [
+    {
+      "id": "case-001-f01",
+      "element": "referral_source",
+      "statement": "Referred by her primary care clinic on 2026-09-28.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-001-f02",
+      "element": "reason_for_referral",
+      "statement": "PHQ-9 score of 16 (moderately severe) on 2026-09-22.",
+      "doc_id": "02-referral-letter",
+      "page": 1
+    },
+    {
+      "id": "case-001-f03",
+      "element": "reason_for_referral",
+      "statement": "Low mood, poor sleep and missed work for about three months.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-001-f04",
+      "element": "client_stated_needs",
+      "statement": "Wants to keep her job and find stable housing; asked for evening appointments.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-001-f05",
+      "element": "living_situation",
+      "statement": "Staying with a friend for six weeks after her lease ended in August; can stay until end of year at most.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-001-f06",
+      "element": "health_history",
+      "statement": "No chronic conditions and no current prescriptions.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-001-f07",
+      "element": "substance_use_history",
+      "statement": "Reports drinking alcohol two or three times a week; denies other use; no prior substance use services.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-001-f08",
+      "element": "prior_services",
+      "statement": "Six outpatient counseling sessions Feb to Apr 2024, completed and discharged.",
+      "doc_id": "03-prior-assessment",
+      "page": 1
+    },
+    {
+      "id": "case-001-f09",
+      "element": "family_social_history",
+      "statement": "Grew up with mother and older sister; mother died in 2023; no children.",
+      "doc_id": "03-prior-assessment",
+      "page": 1
+    },
+    {
+      "id": "case-001-f10",
+      "element": "natural_supports",
+      "statement": "Sister lives nearby and helps with transportation.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-001-f11",
+      "element": "education_or_employment",
+      "statement": "Employed full time on day shifts at a warehouse; forklift certification in 2025.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-001-f12",
+      "element": "strengths",
+      "statement": "Describes herself as organized; completed prior counseling; forklift certification.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    }
+  ]
+}
