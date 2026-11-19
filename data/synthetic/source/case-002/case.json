@@ -1,0 +1,83 @@
+{
+  "case_id": "case-002",
+  "assessment_type": "initial_assessment",
+  "start_date": "2026-10-12",
+  "summary": "Youth referred by school for absences and peer conflict.",
+  "part2_documents": [],
+  "planted_issues": [
+    "Contradiction: intake says Jordan lives with grandmother since 2023 (01-intake-note p1); school record lists aunt as guardian since September 2026 with a new address (02-school-record p1). QA should name the conflict, not resolve it.",
+    "Missing element: no substance use history anywhere in the file. QA should report it as an information gap."
+  ],
+  "expected_facts": [
+    {
+      "id": "case-002-f01",
+      "element": "referral_source",
+      "statement": "Referred by the school counselor on 2026-10-06.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-002-f02",
+      "element": "reason_for_referral",
+      "statement": "14 absences this semester, 9 unexcused; two verbal conflicts in September.",
+      "doc_id": "02-school-record",
+      "page": 1
+    },
+    {
+      "id": "case-002-f03",
+      "element": "client_stated_needs",
+      "statement": "Wants help getting along with people; wants an art class.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-002-f04",
+      "element": "living_situation",
+      "statement": "CONFLICT: grandmother says he has lived with her since 2023.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-002-f05",
+      "element": "living_situation",
+      "statement": "CONFLICT: school lists aunt as primary guardian since September 2026.",
+      "doc_id": "02-school-record",
+      "page": 1
+    },
+    {
+      "id": "case-002-f06",
+      "element": "family_social_history",
+      "statement": "Mother lives out of state; limited contact with father.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-002-f07",
+      "element": "health_history",
+      "statement": "Asthma managed with an inhaler; up late on phone most nights.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-002-f08",
+      "element": "education_or_employment",
+      "statement": "Grade 10; B grades in art and English last year; lower in math and science now.",
+      "doc_id": "02-school-record",
+      "page": 1
+    },
+    {
+      "id": "case-002-f09",
+      "element": "natural_supports",
+      "statement": "Weekly youth group at a community center; close to grandmother.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-002-f10",
+      "element": "strengths",
+      "statement": "Creative, caring toward younger cousin, engages well around art.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    }
+  ]
+}

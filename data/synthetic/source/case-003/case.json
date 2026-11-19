@@ -1,0 +1,75 @@
+{
+  "case_id": "case-003",
+  "assessment_type": "initial_assessment",
+  "start_date": "2026-10-20",
+  "summary": "Older adult referred after hospital discharge for self-care and bill management concerns.",
+  "part2_documents": [],
+  "planted_issues": [
+    "Missing element: no prior services documented. QA should report it as an information gap."
+  ],
+  "expected_facts": [
+    {
+      "id": "case-003-f01",
+      "element": "referral_source",
+      "statement": "Referred by a home health nurse on 2026-10-15.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-003-f02",
+      "element": "reason_for_referral",
+      "statement": "Little food in the home, a final utility notice, and missed medication doses.",
+      "doc_id": "02-home-health-note",
+      "page": 1
+    },
+    {
+      "id": "case-003-f03",
+      "element": "client_stated_needs",
+      "statement": "Wants to stay in his own home and get help with bills.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-003-f04",
+      "element": "living_situation",
+      "statement": "Lives alone in a home he owns, with stairs to the bedroom.",
+      "doc_id": "01-intake-note",
+      "page": 1
+    },
+    {
+      "id": "case-003-f05",
+      "element": "health_history",
+      "statement": "Hospitalized 2026-10-02 to 10-08 for a heart condition; five medications; trouble tracking doses.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-003-f06",
+      "element": "substance_use_history",
+      "statement": "Reports no alcohol or other substance use.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-003-f07",
+      "element": "natural_supports",
+      "statement": "Son calls weekly; neighbor checks on him most days.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-003-f08",
+      "element": "education_or_employment",
+      "statement": "Retired bus mechanic.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    },
+    {
+      "id": "case-003-f09",
+      "element": "strengths",
+      "statement": "Independent, walks daily, open to help with organization.",
+      "doc_id": "01-intake-note",
+      "page": 2
+    }
+  ]
+}
