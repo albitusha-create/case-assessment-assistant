@@ -63,3 +63,19 @@ def search_case(
     for doc in results:
         hits.append(SearchHit(**{k: doc[k] for k in SELECT_FIELDS}, score=doc["@search.score"]))
     return hits
+
+
+def list_case_chunks(client: SupportsSearch, case_id: str, limit: int = 200) -> list[SearchHit]:
+    """Every chunk of one case, in document and page order.
+
+    Our synthetic cases are small enough to send whole to the model. Large real
+    cases would retrieve per element with `search_case` instead.
+    """
+    results = client.search(
+        search_text="*", filter=case_filter(case_id), select=SELECT_FIELDS, top=limit
+    )
+    hits = [
+        SearchHit(**{k: doc[k] for k in SELECT_FIELDS}, score=doc["@search.score"])
+        for doc in results
+    ]
+    return sorted(hits, key=lambda h: (h.doc_id, h.page, h.chunk_id))

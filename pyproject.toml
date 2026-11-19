@@ -57,5 +57,8 @@ packages = ["caa"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Import caa from src directly, so tests do not depend on the editable-install
+# .pth file (which macOS can hide inside iCloud-synced folders).
+pythonpath = ["src"]
 markers = ["integration: needs real Azure resources; skipped in CI unit runs"]
 addopts = "-m 'not integration'"
