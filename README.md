@@ -22,7 +22,7 @@ Business rules (required sections, checklist logic, deadline calculations) are p
 
 ## Architecture
 
-Coming soon: see [docs/architecture.md](docs/architecture.md).
+See [docs/architecture.md](docs/architecture.md) for the component diagram and request flow.
 
 ## Azure services and why
 
