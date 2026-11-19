@@ -48,7 +48,7 @@ def test_extractable_elements_skip_drafted_ones(criteria: Criteria) -> None:
 
 def test_check_facts_takes_doc_and_page_from_the_index() -> None:
     output = ModelOutput(
-        facts=[ModelFact(element="strengths", statement="Organized.", chunk_id="c2")]
+        facts=[ModelFact(elements=["strengths"], statement="Organized.", chunk_id="c2")]
     )
     result = check_facts("case-001", output, ["strengths"], [chunk("c2", "03-prior", page=2)])
     assert result.facts[0].citation == Citation(chunk_id="c2", doc_id="03-prior", page=2)
@@ -58,8 +58,8 @@ def test_check_facts_takes_doc_and_page_from_the_index() -> None:
 def test_check_facts_rejects_unknown_elements_and_foreign_chunks() -> None:
     output = ModelOutput(
         facts=[
-            ModelFact(element="risk_level", statement="High risk.", chunk_id="c1"),
-            ModelFact(element="strengths", statement="Kind.", chunk_id="case-002_doc_p1_c0"),
+            ModelFact(elements=["risk_level"], statement="High risk.", chunk_id="c1"),
+            ModelFact(elements=["strengths"], statement="Kind.", chunk_id="case-002_doc_p1_c0"),
         ]
     )
     result = check_facts("case-001", output, ["strengths"], [chunk("c1")])
@@ -68,7 +68,9 @@ def test_check_facts_rejects_unknown_elements_and_foreign_chunks() -> None:
 
 
 def test_extract_facts_sends_chunks_and_schema(criteria: Criteria) -> None:
-    output = ModelOutput(facts=[ModelFact(element="strengths", statement="Kind.", chunk_id="c1")])
+    output = ModelOutput(
+        facts=[ModelFact(elements=["strengths"], statement="Kind.", chunk_id="c1")]
+    )
     responses = FakeResponses(output)
     client = SimpleNamespace(responses=responses)
 
@@ -88,14 +90,14 @@ def test_extract_facts_fails_loudly_without_parsed_output(criteria: Criteria) ->
 
 
 def test_format_input_lists_elements_and_page_labels() -> None:
-    text = format_input("case-001", ["strengths"], [chunk("c1", page=2)])
-    assert "- strengths" in text
+    text = format_input("case-001", {"strengths": "Good things."}, [chunk("c1", page=2)])
+    assert "- strengths: Good things." in text
     assert "### chunk_id: c1 (doc 01-intake-note, page 2)" in text
 
 
-def _fact(element: str, doc_id: str, page: int) -> Fact:
+def _fact(element: str, doc_id: str, page: int, *more: str) -> Fact:
     citation = Citation(chunk_id="x", doc_id=doc_id, page=page)
-    return Fact(element=element, statement="s", citation=citation)
+    return Fact(elements=[element, *more], statement="s", citation=citation)
 
 
 def test_score_recall_matches_element_doc_and_page() -> None:
@@ -118,3 +120,44 @@ def test_score_recall_matches_element_doc_and_page() -> None:
 def test_synthetic_cases_load() -> None:
     assert list_case_ids()[:2] == ["case-001", "case-002"]
     assert load_case("case-002").assessment_type == "initial_assessment"
+
+
+def test_check_facts_keeps_known_labels_and_drops_unknown_ones() -> None:
+    proposed = ModelFact(
+        elements=["reason_for_referral", "made_up", "education_or_employment"],
+        statement="14 absences.",
+        chunk_id="c1",
+    )
+    known = ["reason_for_referral", "education_or_employment"]
+    result = check_facts("case-001", ModelOutput(facts=[proposed]), known, [chunk("c1")])
+    assert result.facts[0].elements == known
+
+
+def test_a_multi_label_fact_counts_for_each_element() -> None:
+    expected = [
+        ExpectedFact(id="f1", element="reason_for_referral", statement="s", doc_id="d", page=1),
+        ExpectedFact(id="f2", element="education_or_employment", statement="s", doc_id="d", page=1),
+    ]
+    facts = [_fact("reason_for_referral", "d", 1, "education_or_employment")]
+    assert score_recall("case-002", expected, facts).found == ["f1", "f2"]
+
+
+def test_false_fills_flag_facts_under_a_planted_gap() -> None:
+    facts = [_fact("health_history", "d", 2, "substance_use_history")]
+    report = score_recall("case-002", [], facts, absent_elements=["substance_use_history"])
+    assert report.false_fills == ["substance_use_history: s"]
+    assert score_recall("case-002", [], facts).false_fills == []
+
+
+def test_every_extractable_element_has_a_definition(criteria: Criteria) -> None:
+    for assessment_type in criteria.assessment_types:
+        for name, definition in extractable_elements(criteria, assessment_type).items():
+            assert definition, f"{name} has no definition in element_definitions"
+
+
+def test_absent_elements_have_no_expected_facts() -> None:
+    for case_id in list_case_ids():
+        case = load_case(case_id)
+        claimed = {f.element for f in case.expected_facts}
+        assert not claimed & set(case.absent_elements), case_id
+    assert load_case("case-002").absent_elements == ["substance_use_history"]
