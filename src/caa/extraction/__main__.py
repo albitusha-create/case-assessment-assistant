@@ -30,9 +30,9 @@ def main(case_id: str) -> None:
         chunks,
     )
 
-    for fact in sorted(result.facts, key=lambda f: f.element):
+    for fact in sorted(result.facts, key=lambda f: f.elements):
         c = fact.citation
-        print(f"{fact.element:<26} {fact.statement}  [{c.doc_id} p{c.page}]")
+        print(f"{', '.join(fact.elements):<26} {fact.statement}  [{c.doc_id} p{c.page}]")
     for bad in result.rejected:
         print(f"REJECTED ({bad.reason}): {bad.fact.statement}")
 

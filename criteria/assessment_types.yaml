@@ -63,6 +63,26 @@ assessment_types:
           - information_gaps
           - considerations_for_staff
 
+# One line per element. Extraction shows these to the model so each label means
+# one thing, and reviewers can read what a label covers.
+element_definitions:
+  referral_source: Who referred the person, and when.
+  reason_for_referral: The concerns, events, incidents or screening scores that led to the referral.
+  client_stated_needs: What the person (or their caregiver) says they want or need.
+  prior_services: Services received before this referral, such as counseling, treatment or programs.
+  family_social_history: Family members, relationships, and significant family or social events.
+  health_history: Physical or mental health conditions, hospital stays, medications and sleep.
+  substance_use_history: Use of alcohol, drugs or tobacco, or a statement that there is none. Not screen time or other habits.
+  living_situation: Where and with whom the person lives, housing stability, and the guardian of a minor.
+  education_or_employment: School, grades and attendance, or work and work history, including retirement.
+  natural_supports: Family, friends, neighbors or community groups that help the person.
+  strengths: Positive qualities, skills, interests and things that are going well.
+  changes_in_circumstances: What has changed since the last assessment, such as housing, household or work.
+  services_received: Services received or completed since the last assessment, with attendance if stated.
+  summary: Written by the drafting step, not extracted.
+  information_gaps: Written by the drafting step, not extracted.
+  considerations_for_staff: Written by the drafting step, not extracted.
+
 # Business-day calculations skip weekends and these dates.
 holidays:
   - "2026-11-26"
