@@ -1,12 +1,14 @@
-# QA criteria checklist.
-# STARTER TEMPLATE: replace these items with your own criteria.
-# Each item says whether deterministic code or the QA agent checks it.
-version: "0.1.0-starter"
+# QA criteria checklist, version 1.
+# Each item says whether deterministic code (rule) or the QA agent checks it.
+# Blocking items must pass before a supervisor can approve; warnings are shown
+# to the reviewer but do not block.
+version: "1.0.0"
 
 thresholds:
   min_citation_coverage: 1.0     # share of claims that must carry a citation
 
 items:
+  # Completeness
   - id: required_sections_present
     description: Every required section for the assessment type is present.
     checked_by: rule
@@ -17,31 +19,50 @@ items:
     checked_by: rule
     tool: check_required_elements
     severity: blocking
+  - id: completed_by_due_date
+    description: The assessment is completed by its due date (calendar or business days).
+    checked_by: rule
+    tool: calculate_due_date
+    severity: warning
+
+  # Accuracy and evidence
   - id: citation_coverage
     description: Every factual claim cites a source document and page.
     checked_by: rule
     tool: check_citation_coverage
     severity: blocking
   - id: citations_resolve
-    description: Every citation points to a chunk that exists in this case.
+    description: Every citation points to a document in this case.
     checked_by: rule
     tool: validate_citations
     severity: blocking
+  - id: claims_supported
+    description: Each claim is supported by the text it cites.
+    checked_by: agent
+    severity: blocking
+  - id: conflicts_named
+    description: When sources conflict, the draft names the conflict and both sources instead of choosing one.
+    checked_by: agent
+    severity: blocking
+
+  # Scope and safety
   - id: no_determinations
-    description: The draft makes no eligibility, risk level or level of care decision.
+    description: The draft makes no eligibility, risk level, diagnosis or level of care determination.
     checked_by: rule
     tool: check_prohibited_language
     severity: blocking
-  - id: claims_supported
-    description: The cited text actually supports each claim.
+  - id: safety_concerns_carried
+    description: Safety concerns found in the records appear in the summary and are flagged for staff.
     checked_by: agent
     severity: blocking
-  - id: no_contradictions
-    description: Conflicts between sources are named, not silently resolved.
+
+  # Quality of writing
+  - id: person_first_language
+    description: Language is person first and non-stigmatizing.
     checked_by: agent
     severity: warning
-  - id: strengths_based
-    description: Language is person first and includes strengths, not only deficits.
+  - id: strengths_included
+    description: Strengths are described, not only needs or deficits.
     checked_by: agent
     severity: warning
 
