@@ -24,6 +24,8 @@ jobs:
         run: uv run mypy
       - name: Unit tests
         run: uv run pytest
+      - name: Bicep build
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
       - name: No em dashes in tracked files
         run: |
           # git grep only searches files in the repo, not .venv or caches.
