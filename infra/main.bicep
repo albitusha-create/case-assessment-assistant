@@ -14,6 +14,9 @@ param location string
 @description('Object id of the person running azd, so local dev can reach data with az login.')
 param principalId string = ''
 
+@description('Region for AI Search. Free tier capacity runs out in busy regions, so it can differ from the main region; the extra latency is a few milliseconds.')
+param searchLocation string = ''
+
 @description('Email for the monthly budget alert. Leave empty to skip the budget.')
 param budgetAlertEmail string = ''
 
@@ -31,6 +34,7 @@ param embeddingModelVersion string = '1'
 @description('Thousands of tokens per minute for each deployment.')
 param modelCapacity int = 30
 
+var searchRegion = empty(searchLocation) ? location : searchLocation
 var tags = { 'azd-env-name': environmentName, project: 'case-assessment-assistant' }
 var token = toLower(uniqueString(subscription().id, environmentName, location))
 
@@ -66,7 +70,7 @@ module storage 'modules/storage.bicep' = {
 module search 'modules/search.bicep' = {
   scope: rg
   name: 'search'
-  params: { name: 'srch-caa-${token}', location: location, tags: tags, principals: principals }
+  params: { name: 'srch-caa-${token}', location: searchRegion, tags: tags, principals: principals }
 }
 
 module docintel 'modules/docintel.bicep' = {
