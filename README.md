@@ -64,6 +64,14 @@ uv run pytest
 uv run uvicorn caa.main:app --reload
 ```
 
+After `azd provision`, load the synthetic cases into Azure:
+
+```bash
+azd env get-values > .env              # endpoints and names only, no keys
+uv run python scripts/seed_data.py     # blob, layout, chunk, embed, index
+uv run pytest -m integration           # every search hit stays inside its case
+```
+
 ## Production next steps
 
 Coming soon.
