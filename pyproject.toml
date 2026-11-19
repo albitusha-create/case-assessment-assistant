@@ -11,12 +11,12 @@ dependencies = [
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
     "pyyaml>=6.0",
+    "azure-identity>=1.27",
+    "azure-storage-blob>=12.31",
+    "azure-ai-documentintelligence>=1.0.2",
+    "azure-search-documents>=12.1",
+    "openai>=3.56",
 ]
-
-[project.optional-dependencies]
-# Azure SDKs are added step by step as each feature lands, so every
-# dependency has a reason in the git history.
-azure = []
 
 [dependency-groups]
 data = [
