@@ -22,6 +22,7 @@ Container Apps and API Management are added in later steps.
 azd env new caa-dev
 azd env set AZURE_LOCATION eastus2
 azd env set BUDGET_ALERT_EMAIL you@example.com   # optional
+azd env set AZURE_SEARCH_LOCATION centralus      # optional: Free Search capacity is often full in busy regions
 azd provision
 azd env get-values
 ```
