@@ -8,6 +8,9 @@
     "Contradiction: intake says Jordan lives with grandmother since 2023 (01-intake-note p1); school record lists aunt as guardian since September 2026 with a new address (02-school-record p1). QA should name the conflict, not resolve it.",
     "Missing element: no substance use history anywhere in the file. QA should report it as an information gap."
   ],
+  "absent_elements": [
+    "substance_use_history"
+  ],
   "expected_facts": [
     {
       "id": "case-002-f01",

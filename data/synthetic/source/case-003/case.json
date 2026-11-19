@@ -7,6 +7,9 @@
   "planted_issues": [
     "Missing element: no prior services documented. QA should report it as an information gap."
   ],
+  "absent_elements": [
+    "prior_services"
+  ],
   "expected_facts": [
     {
       "id": "case-003-f01",
