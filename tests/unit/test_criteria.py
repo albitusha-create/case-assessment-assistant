@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import caa.rules
 from caa.rules import Criteria, get_required_sections, load_criteria
 
 
@@ -37,3 +38,14 @@ def test_bad_criteria_file_fails_loudly(tmp_path: Path) -> None:
     (tmp_path / "qa_checklist.yaml").write_text("version: '1'\n")  # missing fields
     with pytest.raises(ValidationError):
         load_criteria(tmp_path)
+
+
+def test_rule_items_name_a_real_rule_function(criteria: Criteria) -> None:
+    for item in criteria.checklist.items:
+        if item.checked_by == "rule":
+            assert item.tool in caa.rules.__all__, f"{item.id} names unknown tool {item.tool}"
+
+
+def test_checklist_ids_are_unique(criteria: Criteria) -> None:
+    ids = [item.id for item in criteria.checklist.items]
+    assert len(ids) == len(set(ids))
