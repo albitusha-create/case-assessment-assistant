@@ -11,7 +11,9 @@ from caa.models import Citation
 
 
 class ModelFact(BaseModel):
-    element: str
+    # A fact can support several elements, for example school absences are
+    # both the reason for referral and part of education history.
+    elements: list[str]
     statement: str
     chunk_id: str
 
@@ -21,7 +23,7 @@ class ModelOutput(BaseModel):
 
 
 class Fact(BaseModel):
-    element: str
+    elements: list[str]
     statement: str
     citation: Citation
 

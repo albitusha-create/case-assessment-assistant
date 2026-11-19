@@ -4,8 +4,8 @@
     uv run python evals/extraction_recall.py --min-recall 0.9
 
 Runs extraction live (one model call per case), prints what was missed, writes
-a JSON report to evals/results/, and exits non-zero below the threshold so CI
-can use it as a gate.
+a JSON report to evals/results/, and exits non-zero when recall is below the
+threshold or any fact fills a planted gap, so CI can use it as a gate.
 """
 
 import argparse
@@ -44,7 +44,7 @@ def main(min_recall: float) -> int:
             case.assessment_type,
             chunks,
         )
-        report = score_recall(case_id, case.expected_facts, result.facts)
+        report = score_recall(case_id, case.expected_facts, result.facts, case.absent_elements)
         reports.append(report)
         rejected_total += len(result.rejected)
         found, rejected = len(report.found), len(result.rejected)
@@ -53,11 +53,15 @@ def main(min_recall: float) -> int:
             print(
                 f"  missed {miss.id} {miss.element} [{miss.doc_id} p{miss.page}]: {miss.statement}"
             )
+        for fill in report.false_fills:
+            print(f"  FILLED A PLANTED GAP {fill}")
 
     expected = sum(r.expected for r in reports)
     found = sum(len(r.found) for r in reports)
     overall = found / expected
     print(f"\nOverall recall: {found}/{expected} = {overall:.2f} (gate {min_recall:.2f})")
+    false_fills = sum(len(r.false_fills) for r in reports)
+    print(f"Facts filling a planted gap: {false_fills} (gate 0)")
     print(f"Facts rejected by the citation and element checks: {rejected_total}")
 
     RESULTS_DIR.mkdir(exist_ok=True)
@@ -68,6 +72,7 @@ def main(min_recall: float) -> int:
             {
                 "model": settings.chat_model_deployment,
                 "overall_recall": overall,
+                "false_fills": false_fills,
                 "rejected": rejected_total,
                 "cases": [r.model_dump() | {"recall": r.recall} for r in reports],
             },
@@ -75,7 +80,7 @@ def main(min_recall: float) -> int:
         )
     )
     print(f"Report: {out}")
-    return 0 if overall >= min_recall else 1
+    return 0 if overall >= min_recall and false_fills == 0 else 1
 
 
 if __name__ == "__main__":
