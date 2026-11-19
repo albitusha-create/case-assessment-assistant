@@ -16,6 +16,7 @@ dependencies = [
     "azure-ai-documentintelligence>=1.0.2",
     "azure-search-documents>=12.1",
     "openai>=3.56",
+    "azure-ai-projects>=2.0",
 ]
 
 [dependency-groups]
