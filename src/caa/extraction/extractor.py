@@ -1,10 +1,11 @@
 """Extract cited facts for one case: one LLM call, then deterministic checks.
 
 The model proposes facts. Our code decides which ones are kept: a fact must use
-a known element and cite a chunk that really belongs to this case. Document id
+known elements and cite a chunk that really belongs to this case. Document id
 and page come from the index, never from the model.
 """
 
+from collections.abc import Collection
 from typing import Any, Protocol
 
 from caa.extraction.prompt import INSTRUCTIONS, format_input
@@ -24,10 +25,13 @@ class SupportsResponses(Protocol):
     def responses(self) -> Any: ...
 
 
-def extractable_elements(criteria: Criteria, assessment_type: str) -> list[str]:
-    elements: list[str] = []
+def extractable_elements(criteria: Criteria, assessment_type: str) -> dict[str, str]:
+    """Element name to definition, in section order, without the drafted ones."""
+    elements: dict[str, str] = {}
     for section in get_required_sections(criteria, assessment_type):
-        elements += [e for e in section.required_elements if e not in DRAFTED_ELEMENTS]
+        for name in section.required_elements:
+            if name not in DRAFTED_ELEMENTS:
+                elements[name] = criteria.element_definitions.get(name, "")
     return elements
 
 
@@ -35,7 +39,7 @@ def ask_model(
     client: SupportsResponses,
     deployment: str,
     case_id: str,
-    elements: list[str],
+    elements: dict[str, str],
     chunks: list[SearchHit],
 ) -> ModelOutput:
     response = client.responses.parse(
@@ -51,22 +55,26 @@ def ask_model(
 
 
 def check_facts(
-    case_id: str, output: ModelOutput, elements: list[str], chunks: list[SearchHit]
+    case_id: str, output: ModelOutput, elements: Collection[str], chunks: list[SearchHit]
 ) -> ExtractionResult:
+    """Keep a fact only if it cites a chunk of this case and has a known label.
+
+    Unknown labels are dropped from a fact; a fact left with no known label is
+    rejected.
+    """
     by_id = {c.chunk_id: c for c in chunks}
     facts: list[Fact] = []
     rejected: list[RejectedFact] = []
     for proposed in output.facts:
         chunk = by_id.get(proposed.chunk_id)
-        if proposed.element not in elements:
+        known = [e for e in dict.fromkeys(proposed.elements) if e in elements]
+        if not known:
             rejected.append(RejectedFact(fact=proposed, reason="unknown element"))
         elif chunk is None:
             rejected.append(RejectedFact(fact=proposed, reason="chunk not in this case"))
         else:
             citation = Citation(chunk_id=chunk.chunk_id, doc_id=chunk.doc_id, page=chunk.page)
-            facts.append(
-                Fact(element=proposed.element, statement=proposed.statement, citation=citation)
-            )
+            facts.append(Fact(elements=known, statement=proposed.statement, citation=citation))
     return ExtractionResult(case_id=case_id, facts=facts, rejected=rejected)
 
 
