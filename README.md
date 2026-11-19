@@ -70,6 +70,8 @@ After `azd provision`, load the synthetic cases into Azure:
 azd env get-values > .env              # endpoints and names only, no keys
 uv run python scripts/seed_data.py     # blob, layout, chunk, embed, index
 uv run pytest -m integration           # every search hit stays inside its case
+uv run python -m caa.extraction case-001   # cited facts for one case
+uv run python evals/extraction_recall.py   # recall against the planted facts
 ```
 
 ## Production next steps
