@@ -1,0 +1,10 @@
+.git
+.venv
+.azure
+.env
+tests
+evals
+data
+docs
+infra
+**/__pycache__

@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy
+      - name: Unit tests
+        run: uv run pytest
+      - name: No em dashes in docs and code
+        run: |
+          if grep -rnP '\x{2014}' --include='*.md' --include='*.py' --include='*.yml' --include='*.yaml' --include='*.bicep' .; then
+            echo "Em dash found. Replace it with a comma, colon or parentheses."; exit 1
+          fi

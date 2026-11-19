@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Environment and secrets: never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+
+# Azure Developer CLI local state
+.azure/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+
+# Eval outputs
+evals/results/

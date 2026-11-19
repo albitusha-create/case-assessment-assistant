@@ -1,0 +1,9 @@
+# Azure Developer CLI project file. Infra lives in ./infra (Bicep).
+name: case-assessment-assistant
+services:
+  web:
+    project: .
+    language: py
+    host: containerapp
+    docker:
+      path: ./Dockerfile
