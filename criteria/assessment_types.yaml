@@ -1,0 +1,70 @@
+# Required sections, required elements and due date rules per assessment type.
+# Deterministic code reads this file; the LLM never decides what is required.
+# Generic example values for a reference implementation, not any agency's policy.
+version: "0.1.0"
+
+assessment_types:
+  initial_assessment:
+    label: Initial assessment
+    due:
+      days: 30
+      day_type: calendar       # calendar | business
+      starts_from: intake_date
+    sections:
+      - id: presenting_concerns
+        title: Presenting concerns
+        required_elements:
+          - referral_source
+          - reason_for_referral
+          - client_stated_needs
+      - id: history_background
+        title: History and background
+        required_elements:
+          - prior_services
+          - family_social_history
+          - health_history
+          - substance_use_history
+      - id: current_functioning
+        title: Current functioning and strengths
+        required_elements:
+          - living_situation
+          - education_or_employment
+          - natural_supports
+          - strengths
+      - id: summary_considerations
+        title: Summary and considerations for staff
+        required_elements:
+          - summary
+          - information_gaps
+          - considerations_for_staff
+
+  reassessment:
+    label: Reassessment
+    due:
+      days: 10
+      day_type: business
+      starts_from: review_trigger_date
+    sections:
+      - id: changes_since_last
+        title: Changes since last assessment
+        required_elements:
+          - changes_in_circumstances
+          - services_received
+      - id: current_functioning
+        title: Current functioning and strengths
+        required_elements:
+          - living_situation
+          - natural_supports
+          - strengths
+      - id: summary_considerations
+        title: Summary and considerations for staff
+        required_elements:
+          - summary
+          - information_gaps
+          - considerations_for_staff
+
+# Business-day calculations skip weekends and these dates.
+holidays:
+  - "2026-11-26"
+  - "2026-12-25"
+  - "2027-01-01"
