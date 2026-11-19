@@ -24,8 +24,9 @@ jobs:
         run: uv run mypy
       - name: Unit tests
         run: uv run pytest
-      - name: No em dashes in docs and code
+      - name: No em dashes in tracked files
         run: |
-          if grep -rnP '\x{2014}' --include='*.md' --include='*.py' --include='*.yml' --include='*.yaml' --include='*.bicep' .; then
+          # git grep only searches files in the repo, not .venv or caches.
+          if git grep -n $'\xe2\x80\x94' -- '*.md' '*.py' '*.yml' '*.yaml' '*.bicep' '*.toml'; then
             echo "Em dash found. Replace it with a comma, colon or parentheses."; exit 1
           fi
