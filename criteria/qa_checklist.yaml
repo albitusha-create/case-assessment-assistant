@@ -1,0 +1,62 @@
+# QA criteria checklist.
+# STARTER TEMPLATE: replace these items with your own criteria.
+# Each item says whether deterministic code or the QA agent checks it.
+version: "0.1.0-starter"
+
+thresholds:
+  min_citation_coverage: 1.0     # share of claims that must carry a citation
+
+items:
+  - id: required_sections_present
+    description: Every required section for the assessment type is present.
+    checked_by: rule
+    tool: check_required_elements
+    severity: blocking
+  - id: required_elements_present
+    description: Every required element in each section is addressed.
+    checked_by: rule
+    tool: check_required_elements
+    severity: blocking
+  - id: citation_coverage
+    description: Every factual claim cites a source document and page.
+    checked_by: rule
+    tool: check_citation_coverage
+    severity: blocking
+  - id: citations_resolve
+    description: Every citation points to a chunk that exists in this case.
+    checked_by: rule
+    tool: validate_citations
+    severity: blocking
+  - id: no_determinations
+    description: The draft makes no eligibility, risk level or level of care decision.
+    checked_by: rule
+    tool: check_prohibited_language
+    severity: blocking
+  - id: claims_supported
+    description: The cited text actually supports each claim.
+    checked_by: agent
+    severity: blocking
+  - id: no_contradictions
+    description: Conflicts between sources are named, not silently resolved.
+    checked_by: agent
+    severity: warning
+  - id: strengths_based
+    description: Language is person first and includes strengths, not only deficits.
+    checked_by: agent
+    severity: warning
+
+# Phrases that signal a determination the AI must not make.
+# Matched case-insensitively as whole phrases.
+prohibited_phrases:
+  - is eligible
+  - is not eligible
+  - is ineligible
+  - does not qualify
+  - qualifies for
+  - meets criteria for
+  - level of care is
+  - recommend placement
+  - risk level is
+  - is high risk
+  - is low risk
+  - diagnosis is
