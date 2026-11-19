@@ -50,6 +50,7 @@ class QAChecklist(BaseModel):
 class Criteria(BaseModel):
     version: str
     assessment_types: dict[str, AssessmentType]
+    element_definitions: dict[str, str] = Field(default_factory=dict)
     holidays: list[date] = Field(default_factory=list)
     checklist: QAChecklist
 
