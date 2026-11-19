@@ -57,9 +57,12 @@ resource tracing 'Microsoft.CognitiveServices/accounts/projects/connections@2025
   }
 }
 
+// The account accepts one operation at a time, so deployments wait for the
+// project and its connection to finish.
 resource chat 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: account
   name: chatModelName
+  dependsOn: [ project, tracing ]
   sku: { name: 'GlobalStandard', capacity: capacity }
   properties: {
     model: { format: 'OpenAI', name: chatModelName, version: chatModelVersion }
