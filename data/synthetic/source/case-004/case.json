@@ -1,0 +1,56 @@
+{
+  "case_id": "case-004",
+  "assessment_type": "reassessment",
+  "start_date": "2026-11-02",
+  "summary": "Six-month reassessment for a parent in family support services.",
+  "part2_documents": [
+    "02-treatment-progress-note"
+  ],
+  "planted_issues": [
+    "Part 2 record: 02-treatment-progress-note is a substance use disorder treatment record released with consent on 2026-10-28. Use it to demonstrate consent flags and redisclosure notices."
+  ],
+  "expected_facts": [
+    {
+      "id": "case-004-f01",
+      "element": "changes_in_circumstances",
+      "statement": "Moved to a two-bedroom apartment with a housing subsidy in August 2026; part-time grocery job since September.",
+      "doc_id": "01-reassessment-request",
+      "page": 1
+    },
+    {
+      "id": "case-004-f02",
+      "element": "services_received",
+      "statement": "Completed 12 of 12 parenting group sessions; housing navigation closed after move-in.",
+      "doc_id": "01-reassessment-request",
+      "page": 1
+    },
+    {
+      "id": "case-004-f03",
+      "element": "services_received",
+      "statement": "Attended 22 of 24 outpatient group sessions since 2026-06-01.",
+      "doc_id": "02-treatment-progress-note",
+      "page": 1
+    },
+    {
+      "id": "case-004-f04",
+      "element": "living_situation",
+      "statement": "Two-bedroom apartment with her two children.",
+      "doc_id": "01-reassessment-request",
+      "page": 1
+    },
+    {
+      "id": "case-004-f05",
+      "element": "natural_supports",
+      "statement": "Her mother provides childcare two afternoons a week.",
+      "doc_id": "01-reassessment-request",
+      "page": 2
+    },
+    {
+      "id": "case-004-f06",
+      "element": "strengths",
+      "statement": "Completed every parenting session and supports other parents in group.",
+      "doc_id": "01-reassessment-request",
+      "page": 2
+    }
+  ]
+}
