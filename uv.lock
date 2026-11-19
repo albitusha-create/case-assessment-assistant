@@ -116,6 +116,23 @@ wheels = [
 ]
 
 [[package]]
+name = "azure-ai-projects"
+version = "2.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "azure-identity" },
+    { name = "azure-storage-blob" },
+    { name = "isodate" },
+    { name = "openai" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6d/f2/b9bfee9089a0744663dabb9d1415db2facf4113a9cd2c51b572da2297715/azure_ai_projects-2.11.0.tar.gz", hash = "sha256:eda340da7cabffd0b05b4b5bb8c6c8a5b7a5a8fca495785a1097f2fec8c153f8", size = 1400166, upload-time = "2026-11-13T00:05:19.016Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/90/9b5aef3eb12d8a18d698150764da5eb5a7193a8345db493bb891563f9511/azure_ai_projects-2.11.0-py3-none-any.whl", hash = "sha256:add3f4cc37724abbc3bae4fe2bcfa2b11bd70fc19bc1f1fc68c453532b05c393", size = 692845, upload-time = "2026-11-13T00:05:21.202Z" },
+]
+
+[[package]]
 name = "azure-core"
 version = "1.41.0"
 source = { registry = "https://pypi.org/simple" }
@@ -179,6 +196,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "azure-ai-documentintelligence" },
+    { name = "azure-ai-projects" },
     { name = "azure-identity" },
     { name = "azure-search-documents" },
     { name = "azure-storage-blob" },
@@ -205,6 +223,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "azure-ai-documentintelligence", specifier = ">=1.0.2" },
+    { name = "azure-ai-projects", specifier = ">=2.0" },
     { name = "azure-identity", specifier = ">=1.27" },
     { name = "azure-search-documents", specifier = ">=12.1" },
     { name = "azure-storage-blob", specifier = ">=12.31" },
