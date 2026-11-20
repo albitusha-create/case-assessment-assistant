@@ -40,6 +40,12 @@ param modelCapacity int = 30
 @description('Client id of the Entra app registration for sign-in. Set by scripts/entra_app.sh.')
 param authClientId string = ''
 
+@description('Put API Management in front of the model endpoint. Developer tier: about $0.07 an hour and 30 to 45 minutes to create, so turn it on only for demos.')
+param deployApim bool = false
+
+@description('Per-caller tokens-per-minute limit enforced by API Management.')
+param apimTokensPerMinute int = 20000
+
 @description('Set by azd: true once the web app has been deployed.')
 param webAppExists bool = false
 
@@ -120,13 +126,32 @@ module keyvault 'modules/keyvault.bicep' = {
   params: { name: 'kv-caa-${token}', location: location, tags: tags, principals: principals }
 }
 
+module apim 'modules/apim.bicep' = if (deployApim) {
+  scope: rg
+  name: 'apim'
+  params: {
+    name: 'apim-caa-${token}'
+    location: location
+    tags: tags
+    foundryAccountName: 'aif-caa-${token}'
+    foundryOpenAiEndpoint: foundry.outputs.openAiEndpoint
+    appInsightsName: monitoring.outputs.appInsightsName
+    allowedCallers: map(principals, p => p.id)
+    tokensPerMinute: apimTokensPerMinute
+  }
+}
+
+// With APIM on, direct model calls (extraction, embeddings) go through the
+// gateway. Agent calls go to the Foundry project, which calls its models itself.
+var openAiEndpoint = deployApim ? '${apim!.outputs.gatewayUrl}/' : foundry.outputs.openAiEndpoint
+
 // Every value is an endpoint or a name. The app authenticates as the
 // user-assigned identity, which AZURE_CLIENT_ID selects.
 var appSettings = [
   { name: 'ENVIRONMENT', value: 'azure' }
   { name: 'AZURE_CLIENT_ID', value: identity.outputs.clientId }
   { name: 'AZURE_FOUNDRY_PROJECT_ENDPOINT', value: foundry.outputs.projectEndpoint }
-  { name: 'AZURE_OPENAI_ENDPOINT', value: foundry.outputs.openAiEndpoint }
+  { name: 'AZURE_OPENAI_ENDPOINT', value: openAiEndpoint }
   { name: 'CHAT_MODEL_DEPLOYMENT', value: foundry.outputs.chatDeployment }
   { name: 'EMBEDDING_MODEL_DEPLOYMENT', value: foundry.outputs.embeddingDeployment }
   { name: 'AZURE_SEARCH_ENDPOINT', value: search.outputs.endpoint }
@@ -165,7 +190,7 @@ output AZURE_LOCATION string = location
 output AZURE_RESOURCE_GROUP string = rg.name
 output AZURE_CLIENT_ID string = identity.outputs.clientId
 output AZURE_FOUNDRY_PROJECT_ENDPOINT string = foundry.outputs.projectEndpoint
-output AZURE_OPENAI_ENDPOINT string = foundry.outputs.openAiEndpoint
+output AZURE_OPENAI_ENDPOINT string = openAiEndpoint
 output CHAT_MODEL_DEPLOYMENT string = foundry.outputs.chatDeployment
 output EMBEDDING_MODEL_DEPLOYMENT string = foundry.outputs.embeddingDeployment
 output AZURE_SEARCH_ENDPOINT string = search.outputs.endpoint
@@ -178,3 +203,4 @@ output AZURE_KEY_VAULT_URI string = keyvault.outputs.uri
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.appInsightsConnectionString
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = web.outputs.registryEndpoint
 output WEB_URL string = web.outputs.url
+output APIM_GATEWAY_URL string = deployApim ? apim!.outputs.gatewayUrl : ''
