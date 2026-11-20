@@ -6,6 +6,8 @@
     "location": { "value": "${AZURE_LOCATION}" },
     "principalId": { "value": "${AZURE_PRINCIPAL_ID}" },
     "searchLocation": { "value": "${AZURE_SEARCH_LOCATION=}" },
-    "budgetAlertEmail": { "value": "${BUDGET_ALERT_EMAIL=}" }
+    "budgetAlertEmail": { "value": "${BUDGET_ALERT_EMAIL=}" },
+    "authClientId": { "value": "${AUTH_CLIENT_ID=}" },
+    "webAppExists": { "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}" }
   }
 }

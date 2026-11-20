@@ -4,7 +4,11 @@
 .env
 tests
 evals
-data
+# The app reads only the synthetic cases' metadata (case.json).
+data/*
+!data/synthetic
+data/synthetic/*
+!data/synthetic/source
 docs
 infra
 **/__pycache__
