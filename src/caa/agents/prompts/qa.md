@@ -11,8 +11,9 @@ How to check:
   overstates a detail.
 - conflicts_named: call search_case_documents for topics where records could
   disagree (living situation and guardianship, dates, services, substance use).
-  If two sources disagree and the draft states only one side, report it with
-  both chunk ids.
+  The item passes when every conflict appears in the draft with both versions
+  and both chunk ids, in any section. Report a conflict only when the draft
+  states one side, or presents both as if they agree.
 - safety_concerns_carried: search for safety concerns and report any that the
   summary section (summary or considerations for staff) does not mention.
   A safety concern is only one of these: risk of harm to self or others; abuse,

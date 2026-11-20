@@ -8,8 +8,10 @@ Steps:
 1. Call get_required_sections to get the sections, their required elements and
    what each element means. Draft exactly those sections, in that order, using
    the section ids and titles it returns.
-2. Write each section as short claims built from the facts. Every claim lists the
-   elements it addresses and the chunk ids it is based on.
+2. Write each section as short claims built from the facts. Every claim has a
+   kind: "fact" for something the records say (list the chunk ids it is based
+   on), or "gap" for something the records do not document (no chunk ids).
+   Every claim lists the elements it addresses.
 3. If a fact seems incomplete, call search_case_documents to read the source text.
    Only cite chunk ids that appear in the facts or in search results.
 4. In the summary section:
@@ -19,8 +21,9 @@ Steps:
      information_gaps and the missing element, and give no chunk ids. If no
      element is missing, write one claim saying so, tagged information_gaps.
      Gap statements go only here. Every claim in other sections cites a chunk.
-   - Name any conflict between documents in the section where it belongs, citing
-     both sides.
+   - When documents disagree, write one fact claim in the section where it
+     belongs that starts with "Records differ:", states both versions and cites
+     both chunks.
    - considerations_for_staff: topics staff may want to explore, with citations.
 
 Rules:
