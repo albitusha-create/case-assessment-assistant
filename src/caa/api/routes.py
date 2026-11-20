@@ -13,7 +13,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from caa.api.auth import CASEWORKER, SUPERVISOR, User, current_user, require_role
-from caa.api.workflow import CaseRunner, WorkflowError, approve, return_for_changes, run_and_record
+from caa.api.workflow import (
+    CaseRunner,
+    WorkflowError,
+    approve,
+    dismiss_finding,
+    return_for_changes,
+    run_and_record,
+)
 from caa.storage.store import Store
 from caa.synthetic import SyntheticCase, list_case_ids, load_case
 
@@ -93,6 +100,21 @@ def approve_draft(
     return back_to_case(case.case_id)
 
 
+@router.post("/cases/{case_id}/dismiss")
+def dismiss(
+    case: CaseDep,
+    store: StoreDep,
+    user: Annotated[User, Depends(require_role(SUPERVISOR))],
+    item_id: Annotated[str, Form()],
+    reason: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    try:
+        dismiss_finding(store, case.case_id, user, item_id, reason)
+    except WorkflowError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return back_to_case(case.case_id)
+
+
 @router.post("/cases/{case_id}/return")
 def return_draft(
     case: CaseDep,
@@ -114,6 +136,6 @@ def case_json(
     record = store.get_case(case.case_id)
     return {
         "case": record.model_dump(mode="json") if record else None,
-        "can_approve": bool(record and record.report and record.report.can_approve),
+        "can_approve": bool(record and record.can_approve),
         "events": [e.model_dump(mode="json") for e in store.list_events(case.case_id)],
     }

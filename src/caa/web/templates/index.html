@@ -10,8 +10,8 @@
       <td>{{ (record.status if record else "new") | replace("_", " ") }}</td>
       <td>
         {% if record and record.report %}
-          {% if record.report.can_approve %}<span class="pill ok">no blocking items</span>
-          {% else %}<span class="pill bad">{{ record.report.blocking_failures | length }} blocking</span>{% endif %}
+          {% if record.can_approve %}<span class="pill ok">no blocking items</span>
+          {% else %}<span class="pill bad">{{ record.open_blockers | length }} blocking</span>{% endif %}
         {% else %}<span class="muted">not run</span>{% endif %}
       </td>
     </tr>
