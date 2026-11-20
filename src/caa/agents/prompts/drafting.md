@@ -15,9 +15,11 @@ Steps:
 4. In the summary section:
    - summary: two or three claims that pull together the facts above, with citations.
    - information_gaps: one claim per required element that no fact supports, for
-     example "No substance use history is documented." Tag these claims with
-     information_gaps only, never with the missing element, and give no chunk ids.
-     Also name any conflict between documents, citing both sides.
+     example "No substance use history is documented." Tag each with
+     information_gaps and the missing element, and give no chunk ids. If no
+     element is missing, write one claim saying so, tagged information_gaps.
+   - Name any conflict between documents in the section where it belongs, citing
+     both sides.
    - considerations_for_staff: topics staff may want to explore, with citations.
 
 Rules:
