@@ -61,3 +61,20 @@ def test_gap_statement_turns_missing_element_into_acknowledged_gap(
 def test_a_cited_claim_is_never_a_gap_statement() -> None:
     claim = Claim(text="t", elements=["information_gaps"], citations=[cite()])
     assert not claim.is_gap_statement
+
+
+def test_uncited_claim_does_not_cover_its_element(
+    criteria: Criteria, complete_draft: Draft
+) -> None:
+    history = next(s for s in complete_draft.sections if s.id == "history_background")
+    history.claims = [c for c in history.claims if "prior_services" not in c.elements]
+    # The live failure: a "nothing documented" sentence tagged with the element
+    # itself, without the information_gaps tag and without a citation.
+    history.claims.append(
+        Claim(text="No prior services are documented.", elements=["prior_services"])
+    )
+    required = get_required_sections(criteria, "initial_assessment")
+    result = check_required_elements(complete_draft, required)
+    assert [(m.section_id, m.element) for m in result.missing_elements] == [
+        ("history_background", "prior_services")
+    ]
