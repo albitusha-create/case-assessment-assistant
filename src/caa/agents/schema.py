@@ -5,7 +5,7 @@ strict structured output. The agent cites chunk ids only; our code looks up the
 document and page, exactly as in extraction.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,6 +15,9 @@ class _Strict(BaseModel):
 
 
 class ModelClaim(_Strict):
+    # "gap" means the claim says something is NOT documented. The model only
+    # classifies; code applies the gap rules (see orchestrator.to_claim).
+    kind: Literal["fact", "gap"]
     text: str
     elements: list[str]
     chunk_ids: list[str]

@@ -12,10 +12,10 @@ from typing import Any
 
 from caa.agents.definitions import DRAFTING_AGENT, QA_AGENT
 from caa.agents.runner import run_agent
-from caa.agents.schema import DraftOutput, QAOutput
+from caa.agents.schema import DraftOutput, ModelClaim, QAOutput
 from caa.agents.tool_dispatch import dispatch, make_drafting_tools, make_qa_tools
 from caa.extraction.schema import ExtractionResult
-from caa.models import Citation, Claim, Draft, DraftSection
+from caa.models import GAP_ELEMENT, Citation, Claim, Draft, DraftSection
 from caa.qa.report import CheckResult, QAReport
 from caa.qa.rule_checks import run_rule_checks
 from caa.retrieval.search import SearchHit
@@ -38,6 +38,27 @@ def format_drafting_input(case_id: str, assessment_type: str, facts: ExtractionR
     return "\n".join(lines)
 
 
+def to_claim(model_claim: ModelClaim, by_id: dict[str, SearchHit], dropped: list[str]) -> Claim:
+    """One agent claim to a Claim.
+
+    A gap claim always carries the information_gaps tag and never a citation,
+    wherever the agent put it, so the rules treat it as a gap statement.
+    A fact claim keeps only citations to this case's chunks.
+    """
+    if model_claim.kind == "gap":
+        elements = [GAP_ELEMENT, *[e for e in model_claim.elements if e != GAP_ELEMENT]]
+        return Claim(text=model_claim.text, citations=[], elements=elements)
+
+    citations: list[Citation] = []
+    for chunk_id in model_claim.chunk_ids:
+        chunk = by_id.get(chunk_id)
+        if chunk is None:
+            dropped.append(chunk_id)
+        else:
+            citations.append(Citation(chunk_id=chunk_id, doc_id=chunk.doc_id, page=chunk.page))
+    return Claim(text=model_claim.text, citations=citations, elements=model_claim.elements)
+
+
 def to_draft(
     case_id: str, assessment_type: str, output: DraftOutput, chunks: list[SearchHit]
 ) -> DraftResult:
@@ -46,20 +67,7 @@ def to_draft(
     dropped: list[str] = []
     sections: list[DraftSection] = []
     for model_section in output.sections:
-        claims: list[Claim] = []
-        for model_claim in model_section.claims:
-            citations: list[Citation] = []
-            for chunk_id in model_claim.chunk_ids:
-                chunk = by_id.get(chunk_id)
-                if chunk is None:
-                    dropped.append(chunk_id)
-                else:
-                    citations.append(
-                        Citation(chunk_id=chunk_id, doc_id=chunk.doc_id, page=chunk.page)
-                    )
-            claims.append(
-                Claim(text=model_claim.text, citations=citations, elements=model_claim.elements)
-            )
+        claims = [to_claim(model_claim, by_id, dropped) for model_claim in model_section.claims]
         sections.append(DraftSection(id=model_section.id, title=model_section.title, claims=claims))
     draft = Draft(case_id=case_id, assessment_type=assessment_type, sections=sections)
     return DraftResult(draft=draft, dropped_citations=dropped)
