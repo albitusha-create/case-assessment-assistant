@@ -74,6 +74,7 @@ uv run python -m caa.extraction case-001   # cited facts for one case
 uv run python evals/extraction_recall.py   # recall against the planted facts
 uv run python -m caa.agents publish         # create the Drafting agent in Foundry
 uv run python -m caa.agents draft case-002  # extract, then draft with citations
+uv run python -m caa.agents review case-002 # extract, draft, then QA gap report
 ```
 
 ## Production next steps

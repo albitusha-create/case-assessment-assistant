@@ -12,6 +12,16 @@ from caa.retrieval.search import SearchHit
 from caa.rules import Criteria, get_required_sections
 
 ToolHandler = Callable[[dict[str, Any]], Any]
+CHUNK_FIELDS = {"chunk_id", "doc_id", "page", "text"}
+
+
+def search_tool(search: Callable[[str], list[SearchHit]]) -> ToolHandler:
+    """`search` is already scoped to one case by the caller."""
+
+    def search_documents(args: dict[str, Any]) -> Any:
+        return [hit.model_dump(include=CHUNK_FIELDS) for hit in search(str(args["query"]))]
+
+    return search_documents
 
 
 def make_drafting_tools(
@@ -31,13 +41,27 @@ def make_drafting_tools(
             for s in get_required_sections(criteria, assessment_type)
         ]
 
-    def search_documents(args: dict[str, Any]) -> Any:
+    return {
+        "get_required_sections": required_sections,
+        "search_case_documents": search_tool(search),
+    }
+
+
+def make_qa_tools(
+    chunks: list[SearchHit], search: Callable[[str], list[SearchHit]]
+) -> dict[str, ToolHandler]:
+    by_id = {c.chunk_id: c for c in chunks}
+
+    def get_chunks(args: dict[str, Any]) -> Any:
+        # Only this case's chunks are in by_id, so any other id is "not found".
         return [
-            hit.model_dump(include={"chunk_id", "doc_id", "page", "text"})
-            for hit in search(str(args["query"]))
+            by_id[i].model_dump(include=CHUNK_FIELDS)
+            if i in by_id
+            else {"chunk_id": i, "error": "not found in this case"}
+            for i in args["chunk_ids"]
         ]
 
-    return {"get_required_sections": required_sections, "search_case_documents": search_documents}
+    return {"get_chunks": get_chunks, "search_case_documents": search_tool(search)}
 
 
 def dispatch(handlers: dict[str, ToolHandler], name: str, arguments: str) -> str:
