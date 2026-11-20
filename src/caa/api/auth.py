@@ -30,9 +30,11 @@ class User(BaseModel):
 def parse_principal(header: str) -> User:
     data = json.loads(base64.b64decode(header))
     claims = data.get("claims", [])
-    name_type = data.get("name_typ", "name")
     role_type = data.get("role_typ", "roles")
-    name = next((c["val"] for c in claims if c["typ"] == name_type), "unknown")
+    # Prefer the display name. Easy Auth's name_typ often points at the email
+    # claim, which we do not want on screen or in the audit log.
+    by_type = {c["typ"]: c["val"] for c in claims}
+    name = by_type.get("name") or by_type.get(data.get("name_typ", ""), "unknown")
     roles = {c["val"] for c in claims if c["typ"] in (role_type, "roles")}
     return User(name=name, roles=roles)
 
