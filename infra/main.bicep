@@ -14,6 +14,9 @@ param location string
 @description('Object id of the person running azd, so local dev can reach data with az login.')
 param principalId string = ''
 
+@description('Object id of the GitHub Actions identity from `azd pipeline config`. It gets the same data roles, so the eval gate can run.')
+param ciPrincipalId string = ''
+
 @description('Region for AI Search. Free tier capacity runs out in busy regions, so it can differ from the main region; the extra latency is a few milliseconds.')
 param searchLocation string = ''
 
@@ -52,6 +55,7 @@ var token = toLower(uniqueString(subscription().id, environmentName, location))
 
 // The deployer gets the same data roles as the app, but as a User principal.
 var deployer = empty(principalId) ? [] : [ { id: principalId, type: 'User' } ]
+var ci = empty(ciPrincipalId) ? [] : [ { id: ciPrincipalId, type: 'ServicePrincipal' } ]
 
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: 'rg-${environmentName}'
@@ -65,7 +69,7 @@ module identity 'modules/identity.bicep' = {
   params: { name: 'id-caa-${token}', location: location, tags: tags }
 }
 
-var principals = concat([ { id: identity.outputs.principalId, type: 'ServicePrincipal' } ], deployer)
+var principals = concat([ { id: identity.outputs.principalId, type: 'ServicePrincipal' } ], deployer, ci)
 
 module monitoring 'modules/monitoring.bicep' = {
   scope: rg

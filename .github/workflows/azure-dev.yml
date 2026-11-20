@@ -1,0 +1,70 @@
+# Ships code changes to the existing Azure environment, gated by the
+# extraction eval. Infrastructure changes (`azd provision`) stay a manual step
+# run by a person; this workflow only builds and deploys the app.
+#
+# Auth is OpenID Connect: GitHub issues a short-lived token that Entra trusts
+# through a federated credential, so no Azure secret is stored in GitHub.
+# `azd pipeline config` creates that identity and sets the variables below.
+name: deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "criteria/**"
+      - "data/synthetic/source/**"
+      - "Dockerfile"
+      - "pyproject.toml"
+      - "uv.lock"
+
+permissions:
+  id-token: write # request the OIDC token
+  contents: read
+
+concurrency: deploy # one deploy at a time, in order
+
+jobs:
+  eval-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - uses: Azure/setup-azd@v2
+
+      - name: Sign in to Azure (az, used by the eval)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign in to Azure (azd)
+        run: |
+          azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github
+
+      - name: Load the environment's settings from its last provision
+        run: |
+          azd env new "$AZURE_ENV_NAME" --subscription "$AZURE_SUBSCRIPTION_ID" \
+            --location "$AZURE_LOCATION" --no-prompt
+          azd env refresh --no-prompt
+          azd env get-values > .env
+
+      - name: Install
+        run: uv sync --frozen
+
+      - name: Eval gate (extraction recall at least 0.8, no planted gap filled)
+        run: uv run python evals/extraction_recall.py
+
+      - name: Deploy
+        run: azd deploy --no-prompt
