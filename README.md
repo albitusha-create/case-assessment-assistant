@@ -61,7 +61,7 @@ Coming soon. Deployment uses the Azure Developer CLI (`azd up`) and teardown use
 ```bash
 uv sync
 uv run pytest
-uv run uvicorn caa.main:app --reload
+uv run uvicorn caa.main:create_app --factory --reload   # http://127.0.0.1:8000
 ```
 
 After `azd provision`, load the synthetic cases into Azure:

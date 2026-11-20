@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Cases</h1>
+<div class="card table-scroll">
+  <table>
+    <tr><th>Case</th><th>Status</th><th>QA</th></tr>
+    {% for case_id, record in cases %}
+    <tr>
+      <td><a href="/cases/{{ case_id }}">{{ case_id }}</a></td>
+      <td>{{ (record.status if record else "new") | replace("_", " ") }}</td>
+      <td>
+        {% if record and record.report %}
+          {% if record.report.can_approve %}<span class="pill ok">no blocking items</span>
+          {% else %}<span class="pill bad">{{ record.report.blocking_failures | length }} blocking</span>{% endif %}
+        {% else %}<span class="muted">not run</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

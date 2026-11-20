@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     azure_docintel_endpoint: str = ""
     azure_storage_account_url: str = ""
     azure_storage_container: str = "case-documents"
+    azure_cosmos_endpoint: str = ""
+    azure_cosmos_database: str = "caa"
+
+    # Used only when environment is "local" and no Easy Auth header is present,
+    # so you can click through the app on your machine with both roles.
+    dev_user_name: str = "local-dev"
+    dev_user_roles: str = "Caseworker,Supervisor"
 
     def require(self, *names: str) -> None:
         missing = [n.upper() for n in names if not getattr(self, n)]
