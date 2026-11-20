@@ -8,6 +8,7 @@
     "searchLocation": { "value": "${AZURE_SEARCH_LOCATION=}" },
     "budgetAlertEmail": { "value": "${BUDGET_ALERT_EMAIL=}" },
     "authClientId": { "value": "${AUTH_CLIENT_ID=}" },
+    "deployApim": { "value": "${DEPLOY_APIM=false}" },
     "webAppExists": { "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}" }
   }
 }

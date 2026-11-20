@@ -64,6 +64,17 @@ def test_parse_easy_auth_principal() -> None:
     assert (user.name, user.roles) == ("sam", {"Supervisor"})
 
 
+def test_principal_prefers_display_name_over_email() -> None:
+    claims = [
+        {"typ": "preferred_username", "val": "person@example.com"},
+        {"typ": "name", "val": "Pat Doe"},
+    ]
+    header = base64.b64encode(
+        json.dumps({"claims": claims, "name_typ": "preferred_username"}).encode()
+    ).decode()
+    assert parse_principal(header).name == "Pat Doe"
+
+
 def test_pages_render(store: MemoryStore, complete_draft: Draft) -> None:
     client = make_client(store, complete_draft)
     assert "case-002" in client.get("/").text
