@@ -1,6 +1,7 @@
 """Read the synthetic cases' metadata and ground truth (data/synthetic/source)."""
 
 import json
+from datetime import date
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -19,6 +20,7 @@ class ExpectedFact(BaseModel):
 class SyntheticCase(BaseModel):
     case_id: str
     assessment_type: str
+    start_date: date
     # Elements the case deliberately leaves undocumented (planted gaps).
     absent_elements: list[str] = []
     expected_facts: list[ExpectedFact]
