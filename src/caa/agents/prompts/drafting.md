@@ -18,6 +18,7 @@ Steps:
      example "No substance use history is documented." Tag each with
      information_gaps and the missing element, and give no chunk ids. If no
      element is missing, write one claim saying so, tagged information_gaps.
+     Gap statements go only here. Every claim in other sections cites a chunk.
    - Name any conflict between documents in the section where it belongs, citing
      both sides.
    - considerations_for_staff: topics staff may want to explore, with citations.
