@@ -1,0 +1,25 @@
+<!--
+  Model calls (Responses API): a per-caller tokens-per-minute limit, and token
+  counts sent to Application Insights as custom metrics.
+  Over the limit, APIM answers 429 with Retry-After and Foundry is not called.
+  __TOKENS_PER_MINUTE__ is filled in by apim.bicep.
+-->
+<policies>
+  <inbound>
+    <base />
+    <llm-token-limit counter-key="@((string)context.Variables[&quot;callerId&quot;])" tokens-per-minute="__TOKENS_PER_MINUTE__" estimate-prompt-tokens="false" remaining-tokens-header-name="x-ratelimit-remaining-tokens" tokens-consumed-header-name="x-tokens-consumed" />
+    <llm-emit-token-metric namespace="caa">
+      <dimension name="Caller" value="@((string)context.Variables[&quot;callerId&quot;])" />
+      <dimension name="API ID" />
+    </llm-emit-token-metric>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

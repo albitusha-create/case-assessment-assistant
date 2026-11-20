@@ -1,0 +1,32 @@
+<!--
+  Applies to every call to the models API.
+  1. Only the app's managed identity (and the deployer, for local runs) may call.
+     Callers send the same Entra token they would send to Foundry directly.
+  2. The caller's object id is kept for the token limit and metrics.
+  3. APIM calls Foundry with its own managed identity. No keys anywhere.
+  __TENANT_ID__ and __ALLOWED_CALLERS__ are filled in by apim.bicep.
+-->
+<policies>
+  <inbound>
+    <base />
+    <validate-azure-ad-token tenant-id="__TENANT_ID__" header-name="Authorization" failed-validation-httpcode="401">
+      <audiences>
+        <audience>https://cognitiveservices.azure.com</audience>
+      </audiences>
+      <required-claims>
+        <claim name="oid" match="any">__ALLOWED_CALLERS__</claim>
+      </required-claims>
+    </validate-azure-ad-token>
+    <set-variable name="callerId" value="@(context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;, &quot;&quot;).Split(' ').Last().AsJwt()?.Claims.GetValueOrDefault(&quot;oid&quot;, &quot;unknown&quot;))" />
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
