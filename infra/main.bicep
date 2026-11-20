@@ -34,6 +34,12 @@ param embeddingModelVersion string = '1'
 @description('Thousands of tokens per minute for each deployment.')
 param modelCapacity int = 30
 
+@description('Client id of the Entra app registration for sign-in. Set by scripts/entra_app.sh.')
+param authClientId string = ''
+
+@description('Set by azd: true once the web app has been deployed.')
+param webAppExists bool = false
+
 var searchRegion = empty(searchLocation) ? location : searchLocation
 var tags = { 'azd-env-name': environmentName, project: 'case-assessment-assistant' }
 var token = toLower(uniqueString(subscription().id, environmentName, location))
@@ -110,6 +116,40 @@ module keyvault 'modules/keyvault.bicep' = {
   params: { name: 'kv-caa-${token}', location: location, tags: tags, principals: principals }
 }
 
+// Every value is an endpoint or a name. The app authenticates as the
+// user-assigned identity, which AZURE_CLIENT_ID selects.
+var appSettings = [
+  { name: 'ENVIRONMENT', value: 'azure' }
+  { name: 'AZURE_CLIENT_ID', value: identity.outputs.clientId }
+  { name: 'AZURE_FOUNDRY_PROJECT_ENDPOINT', value: foundry.outputs.projectEndpoint }
+  { name: 'AZURE_OPENAI_ENDPOINT', value: foundry.outputs.openAiEndpoint }
+  { name: 'CHAT_MODEL_DEPLOYMENT', value: foundry.outputs.chatDeployment }
+  { name: 'EMBEDDING_MODEL_DEPLOYMENT', value: foundry.outputs.embeddingDeployment }
+  { name: 'AZURE_SEARCH_ENDPOINT', value: search.outputs.endpoint }
+  { name: 'AZURE_DOCINTEL_ENDPOINT', value: docintel.outputs.endpoint }
+  { name: 'AZURE_STORAGE_ACCOUNT_URL', value: storage.outputs.blobEndpoint }
+  { name: 'AZURE_STORAGE_CONTAINER', value: storage.outputs.containerName }
+  { name: 'AZURE_COSMOS_ENDPOINT', value: cosmos.outputs.endpoint }
+  { name: 'AZURE_COSMOS_DATABASE', value: cosmos.outputs.databaseName }
+]
+
+module web 'modules/containerapp.bicep' = {
+  scope: rg
+  name: 'web'
+  params: {
+    token: token
+    location: location
+    tags: tags
+    identityId: identity.outputs.id
+    identityPrincipalId: identity.outputs.principalId
+    logAnalyticsName: monitoring.outputs.logAnalyticsName
+    appSettings: appSettings
+    appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    authClientId: authClientId
+    exists: webAppExists
+  }
+}
+
 module budget 'modules/budget.bicep' = if (!empty(budgetAlertEmail)) {
   scope: rg
   name: 'budget'
@@ -132,3 +172,5 @@ output AZURE_COSMOS_ENDPOINT string = cosmos.outputs.endpoint
 output AZURE_COSMOS_DATABASE string = cosmos.outputs.databaseName
 output AZURE_KEY_VAULT_URI string = keyvault.outputs.uri
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.appInsightsConnectionString
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = web.outputs.registryEndpoint
+output WEB_URL string = web.outputs.url
