@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # Empty defaults keep unit tests runnable without Azure. Code that talks to
     # Azure calls `require()` so a missing value fails with a clear message.
+    azure_foundry_project_endpoint: str = ""
     azure_openai_endpoint: str = ""
     embedding_model_deployment: str = "text-embedding-3-small"
     chat_model_deployment: str = "gpt-5.4-mini"
