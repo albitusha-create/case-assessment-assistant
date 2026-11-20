@@ -2,7 +2,7 @@
 
 An Azure-native reference implementation of an AI-assisted case assessment workflow for county human services and behavioral health programs. AI extracts facts with citations, drafts assessment sections, and checks drafts against a QA checklist. Staff review, edit and approve everything. **AI never makes clinical or eligibility decisions.**
 
-> Status: under construction. This repo uses **synthetic data only**. It contains no real people, agencies or protected health information, and it is not a compliance certification.
+> This repo uses **synthetic data only**. It contains no real people, agencies or protected health information, and it is not a compliance certification.
 
 ## The problem
 
@@ -10,11 +10,11 @@ Caseworkers spend hours reviewing large case files, writing assessment narrative
 
 ## The workflow
 
-1. A caseworker uploads case documents (intake notes, collateral records, prior assessments).
-2. **Extraction:** structured facts are pulled out, each with a citation to its source page or section.
-3. **Drafting agent:** drafts the assessment sections; every claim is cited.
-4. **QA agent:** checks the draft against a criteria checklist (completeness, citation coverage, contradictions, missing required elements) and returns a gap report.
-5. **Human review:** the caseworker edits and approves; the system logs who approved what.
+1. **Ingestion:** case documents (intake notes, school and health records, prior assessments) are laid out by Document Intelligence, chunked by page, embedded and indexed. In this repo a seed script loads the synthetic cases.
+2. **Extraction:** structured facts are pulled out, each tied to the chunk, document and page it came from. Facts that cite a chunk outside the case are rejected in code.
+3. **Drafting agent:** drafts the assessment sections. Every factual claim cites its source; missing information is stated as a gap, never filled in.
+4. **QA:** rule checks run in code (sections, required elements, citations, deadline, no determinations). The QA agent judges what code cannot (claims supported by their sources, conflicts named, safety concerns carried, person-first language, strengths). Severity comes from the checklist, never from the model, and an item the agent does not report fails.
+5. **Human review:** a caseworker runs the case; a supervisor approves or returns it with a comment. A supervisor may dismiss an AI-judged finding with a written reason. Rule failures cannot be dismissed. Every step lands in an append-only audit log.
 
 ## Design principle: deterministic rules, LLM judgment
 
@@ -46,7 +46,13 @@ See [docs/security-compliance.md](docs/security-compliance.md).
 
 ## Evaluation approach
 
-Coming soon.
+The synthetic cases carry ground truth: the facts a careful reader should find (with document and page) and the elements each case deliberately leaves undocumented.
+
+- **Extraction recall** (`evals/extraction_recall.py`): share of planted facts found with the right element, document and page, and a count of facts that "fill" a planted gap. The gate is recall of at least 0.8 and zero false fills. Live runs score about 0.86 with zero false fills.
+- **Deterministic checks** (unit tests): rules, citation resolution, fail-closed QA, the approval gate and the audit trail are tested without a model.
+- **CI gate:** the deploy workflow runs the recall eval and does not deploy if it fails.
+
+Model output varies from run to run, so one run is a sample, not a score. See [evals/README.md](evals/README.md).
 
 ## Cost
 
@@ -54,7 +60,26 @@ See [docs/cost.md](docs/cost.md).
 
 ## Deploy and tear down
 
-Coming soon. Deployment uses the Azure Developer CLI (`azd up`) and teardown uses `scripts/teardown.sh`.
+Prerequisites: an Azure subscription where you can assign roles, the Azure CLI, the Azure Developer CLI (`azd`), Docker, `uv` and the GitHub CLI. Check model quota for the chat and embedding models in your region first (see [infra/README.md](infra/README.md)).
+
+```bash
+azd env new caa-dev
+azd env set AZURE_LOCATION eastus2
+azd provision                      # about 15 minutes the first time
+azd env get-values > .env
+uv run python scripts/seed_data.py # load the synthetic cases
+uv run python -m caa.agents publish
+azd deploy                         # build and roll out the web app
+./scripts/entra_app.sh             # sign-in app registration and roles
+azd provision                      # turns sign-in on
+```
+
+Optional:
+
+- `azd env set DEPLOY_APIM true && azd provision` puts API Management in front of model calls (30 to 45 minutes, billed hourly). `./scripts/apim_off.sh` removes it.
+- `./scripts/github_oidc.sh` sets up the GitHub Actions deploy with OIDC.
+
+Tear down with `./scripts/teardown.sh`. It deletes the resource group and purges soft-deleted resources. Details are in [infra/README.md](infra/README.md).
 
 ## Local development
 
@@ -72,14 +97,23 @@ uv run python scripts/seed_data.py     # blob, layout, chunk, embed, index
 uv run pytest -m integration           # every search hit stays inside its case
 uv run python -m caa.extraction case-001   # cited facts for one case
 uv run python evals/extraction_recall.py   # recall against the planted facts
-uv run python -m caa.agents publish         # create the Drafting agent in Foundry
+uv run python -m caa.agents publish         # create or update both agents in Foundry
 uv run python -m caa.agents draft case-002  # extract, then draft with citations
 uv run python -m caa.agents review case-002 # extract, draft, then QA gap report
 ```
 
 ## Production next steps
 
-Coming soon.
+This is a reference implementation. Before real use, at minimum:
+
+- **Data and compliance:** a legal and privacy review for the program's rules (for example HIPAA, 42 CFR Part 2 for substance use records, state law), retention and deletion policies, and Data Zone or regional model deployments where data residency matters.
+- **Network isolation:** private endpoints for every data service, public network access off, Container Apps in a virtual network, and API Management in a tier that supports internal networking.
+- **Separation of duties:** today one demo user holds both roles. Production should stop a person from approving a case they ran, and review role assignments regularly.
+- **Gateway coverage:** agent model calls go from the Foundry project to its models directly, so they skip the API Management token limits. Route them through a gateway or set limits at the deployment.
+- **Evaluation:** average several runs per change, add drafting and QA evals with human-labeled examples, and track the QA judge's false-positive rate. Supervisors' dismissal reasons are a ready source of labels.
+- **Least privilege:** scope the CI identity to the resource group, narrow data roles per component, and switch Application Insights ingestion to Entra auth.
+- **Ingestion:** a document upload flow with a queue and background jobs, and better section detection in layout output.
+- **Audit:** export the audit log to immutable storage, and add Content Safety prompt shields on document text.
 
 ## License
 
