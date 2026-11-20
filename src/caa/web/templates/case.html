@@ -69,7 +69,7 @@
       <li>{{ claim.text }}
         <span class="cite">
           {% if claim.citations %}[{% for c in claim.citations %}{{ c.doc_id }} p{{ c.page }}{% if not loop.last %}, {% endif %}{% endfor %}]
-          {% elif claim.is_gap_statement %}[information gap]{% else %}<span class="bad">[no citation]</span>{% endif %}
+          {% elif claim.is_gap_statement %}{% if claim.elements|length > 1 %}[information gap]{% else %}[no gaps found]{% endif %}{% else %}<span class="bad">[no citation]</span>{% endif %}
         </span>
       </li>
       {% endfor %}
