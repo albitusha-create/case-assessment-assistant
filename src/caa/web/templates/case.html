@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ case.case_id }} &middot; Case Assessment Assistant{% endblock %}
+{% block content %}
+<h1>{{ case.case_id }}</h1>
+<p class="muted">{{ case.assessment_type | replace("_", " ") }} &middot; started {{ case.start_date }}
+  &middot; status <strong>{{ (record.status if record else "new") | replace("_", " ") }}</strong></p>
+
+<div class="actions">
+  {% if "Caseworker" in user.roles %}
+  <form method="post" action="/cases/{{ case.case_id }}/run"
+        onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Running, about a minute...';">
+    <button type="submit">{{ "Run again" if record else "Extract, draft and check" }}</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if record and record.draft %}
+  {% set report = record.report %}
+  <h2>QA report</h2>
+  <div class="card">
+    {% if report.can_approve %}<p class="ok"><strong>No blocking items.</strong> A supervisor can approve.</p>
+    {% else %}<p class="bad"><strong>{{ report.blocking_failures | length }} blocking item(s).</strong> Approval is blocked until they are fixed.</p>{% endif %}
+    <div class="table-scroll"><table>
+      {% for r in report.results %}
+      <tr>
+        <td>{% if r.passed %}<span class="pill ok">pass</span>
+            {% elif r.severity == "blocking" %}<span class="pill bad">fail</span>
+            {% else %}<span class="pill warn">warning</span>{% endif %}</td>
+        <td>{{ r.description }} <span class="muted">({{ r.checked_by }})</span>
+          {% if r.findings %}<ul class="claims">{% for f in r.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table></div>
+    {% if report.acknowledged_gaps %}
+    <p class="muted">Known gaps: {{ report.acknowledged_gaps | map(attribute="element") | map("replace", "_", " ") | join(", ") }}</p>
+    {% endif %}
+  </div>
+
+  {% if "Supervisor" in user.roles and record.status == "in_review" %}
+  <h2>Decision</h2>
+  <div class="card actions">
+    <form method="post" action="/cases/{{ case.case_id }}/approve">
+      <button type="submit" {% if not report.can_approve %}disabled title="Blocking QA items remain"{% endif %}>Approve</button>
+    </form>
+    <form method="post" action="/cases/{{ case.case_id }}/return" style="flex: 1; min-width: 240px;">
+      <textarea name="comment" rows="2" placeholder="What needs to change? (required)" required></textarea>
+      <button type="submit" class="secondary">Return for changes</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <h2>Draft</h2>
+  {% for section in record.draft.sections %}
+  <div class="card">
+    <strong>{{ section.title }}</strong>
+    <ul class="claims">
+      {% for claim in section.claims %}
+      <li>{{ claim.text }}
+        <span class="cite">
+          {% if claim.citations %}[{% for c in claim.citations %}{{ c.doc_id }} p{{ c.page }}{% if not loop.last %}, {% endif %}{% endfor %}]
+          {% elif claim.is_gap_statement %}[information gap]{% else %}<span class="bad">[no citation]</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<h2>Audit log</h2>
+<div class="card table-scroll">
+  {% if events %}
+  <table>
+    <tr><th>When (UTC)</th><th>Who</th><th>What</th><th>Details</th></tr>
+    {% for e in events %}
+    <tr>
+      <td class="muted">{{ e.at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+      <td>{{ e.actor }}</td>
+      <td>{{ e.action | replace("_", " ") }}</td>
+      <td class="muted">{% for k, v in e.details.items() %}{{ k | replace("_", " ") }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">No events yet.</p>{% endif %}
+</div>
+{% endblock %}
