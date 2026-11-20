@@ -5,6 +5,8 @@
 # Auth is OpenID Connect: GitHub issues a short-lived token that Entra trusts
 # through a federated credential, so no Azure secret is stored in GitHub.
 # `azd pipeline config` creates that identity and sets the variables below.
+# The tenant and subscription ids are not credentials, but they are kept in
+# secrets so public run logs mask them (scripts/github_oidc.sh moves them).
 name: deploy
 
 on:
@@ -30,8 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
     steps:
@@ -45,8 +47,8 @@ jobs:
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Sign in to Azure (azd)
         run: |
