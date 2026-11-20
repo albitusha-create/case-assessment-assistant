@@ -25,7 +25,7 @@ flowchart LR
     REV --> COS[(Cosmos DB: cases, drafts, audit)]
     ACA -. telemetry .-> AI[App Insights and Foundry tracing]
     ENTRA[Entra ID] -. sign-in and app roles .-> UI
-    GH[GitHub Actions: OIDC] -. azd provision and deploy .-> ACA
+    GH[GitHub Actions: OIDC, eval gate] -. azd deploy .-> ACA
 ```
 
 Only steps 3 and 4 are agents. Ingestion, extraction orchestration, rules and approval are deterministic code or a human step. All service calls use a managed identity.
@@ -35,6 +35,7 @@ Only steps 3 and 4 are agents. Ingestion, extraction orchestration, rules and ap
 ```mermaid
 sequenceDiagram
     actor CW as Caseworker
+    actor SV as Supervisor
     participant App as FastAPI orchestrator
     participant Rules as rules package
     participant Draft as Drafting agent (Foundry)
@@ -51,13 +52,13 @@ sequenceDiagram
     App-->>Draft: tool result
     Draft-->>App: Draft with cited claims
     App->>Audit: draft_generated (agent version, model)
-    App->>QA: Check draft against checklist
-    QA->>App: function calls: coverage, citations, elements, language
-    App->>Rules: run checks
-    App-->>QA: rule results
-    QA-->>App: Gap report (rule results + AI observations)
+    App->>Rules: rule checks (sections, elements, citations, deadline, determinations)
+    App->>QA: Judge the agent items on the checklist
+    QA->>App: function call: get_chunks (cited text)
+    App-->>QA: chunks from this case only
+    QA-->>App: findings per item (unreported items fail)
     App->>Audit: qa_completed
-    App-->>CW: Draft and gap report
-    CW->>App: Edit and approve
-    App->>Audit: human_edit, approved (user, role, time)
+    App-->>CW: Draft and QA report
+    SV->>App: Approve, return with comment, or dismiss an AI-judged finding with a reason
+    App->>Audit: approved / returned / finding_dismissed (user, time, reason)
 ```
