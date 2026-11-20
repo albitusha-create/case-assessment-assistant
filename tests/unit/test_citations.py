@@ -42,3 +42,17 @@ def test_citation_to_unknown_chunk_is_invalid() -> None:
 def test_all_citations_valid() -> None:
     draft = _draft(Claim(text="A.", citations=[cite("real")]))
     assert validate_citations(draft, known_chunk_ids={"real"}) == []
+
+
+def test_gap_statements_are_not_counted_as_uncited() -> None:
+    gap = Claim(
+        text="No prior services are documented.", elements=["information_gaps", "prior_services"]
+    )
+    fact = Claim(text="Lives alone.", citations=[cite()], elements=["living_situation"])
+    draft = Draft(
+        case_id="case-003",
+        assessment_type="initial_assessment",
+        sections=[DraftSection(id="s", title="S", claims=[gap, fact])],
+    )
+    result = check_citation_coverage(draft)
+    assert (result.total_claims, result.coverage) == (1, 1.0)

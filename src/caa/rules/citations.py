@@ -27,11 +27,17 @@ class InvalidCitation(BaseModel):
 
 
 def check_citation_coverage(draft: Draft) -> CoverageResult:
-    """Share of claims that carry at least one citation, and which ones do not."""
+    """Share of claims that carry at least one citation, and which ones do not.
+
+    Gap statements ("No substance use history is documented.") are not counted:
+    they say something is absent, so there is no source to cite.
+    """
     uncited: list[ClaimRef] = []
     total = 0
     for section in draft.sections:
         for index, claim in enumerate(section.claims):
+            if claim.is_gap_statement:
+                continue
             total += 1
             if not claim.citations:
                 uncited.append(ClaimRef(section_id=section.id, claim_index=index, text=claim.text))
