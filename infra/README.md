@@ -74,3 +74,15 @@ azd env get-values > .env      # local runs now use the gateway too
 ```
 
 Token metrics appear in Application Insights under Metrics, custom namespace `caa`, or with `customMetrics | where name endswith "Tokens"` in Logs.
+
+## Continuous deployment (GitHub Actions)
+
+`.github/workflows/azure-dev.yml` runs on pushes to `main` that change app code, and on demand. It signs in with OpenID Connect (no Azure secret in GitHub), loads the environment's settings with `azd env refresh`, runs the extraction eval as a gate, and then runs `azd deploy`. It never runs `azd provision`: infrastructure changes stay a reviewed, manual step.
+
+One-time setup:
+
+```bash
+./scripts/github_oidc.sh
+```
+
+In production, scope the GitHub identity to the resource group instead of the subscription, and give it only the data roles the eval needs.
