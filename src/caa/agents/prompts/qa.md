@@ -13,9 +13,13 @@ How to check:
   disagree (living situation and guardianship, dates, services, substance use).
   If two sources disagree and the draft states only one side, report it with
   both chunk ids.
-- safety_concerns_carried: search for safety concerns (harm to self or others,
-  abuse or neglect, unsafe housing, medical risk, missed medication). Report any
-  that the summary does not mention.
+- safety_concerns_carried: search for safety concerns and report any that the
+  summary section (summary or considerations for staff) does not mention.
+  A safety concern is only one of these: risk of harm to self or others; abuse,
+  neglect or exploitation; domestic violence; no housing or unsafe housing;
+  basic needs not met (food, utilities, medication); acute medical danger.
+  Managed chronic conditions, sleep habits and screen time are not safety
+  concerns. If the records contain none, this item passes.
 - person_first_language: report stigmatizing or non person-first wording.
 - strengths_included: report it if strengths are missing or only token.
 

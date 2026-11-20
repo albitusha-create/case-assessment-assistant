@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from caa.models import GAP_ELEMENT, Draft
+from caa.models import GAP_ELEMENT, Claim, Draft
 from caa.rules.criteria import SectionSpec
 
 
@@ -22,6 +22,17 @@ class CompletenessResult(BaseModel):
     @property
     def is_complete(self) -> bool:
         return not self.missing_sections and not self.missing_elements
+
+
+def _addressed(claim: Claim) -> list[str]:
+    """Elements a claim really covers.
+
+    A gap statement covers only information_gaps. Any other claim covers its
+    elements only if it cites a source: an uncited claim proves nothing.
+    """
+    if claim.is_gap_statement:
+        return [GAP_ELEMENT]
+    return claim.elements if claim.citations else []
 
 
 def check_required_elements(draft: Draft, required: list[SectionSpec]) -> CompletenessResult:
@@ -50,12 +61,7 @@ def check_required_elements(draft: Draft, required: list[SectionSpec]) -> Comple
         if section is None:
             missing_sections.append(spec.id)
             continue
-        # Gap statements address only the information_gaps element itself.
-        tagged = {
-            element
-            for claim in section.claims
-            for element in ([GAP_ELEMENT] if claim.is_gap_statement else claim.elements)
-        }
+        tagged = {element for claim in section.claims for element in _addressed(claim)}
         for element in spec.required_elements:
             if element in tagged:
                 continue
