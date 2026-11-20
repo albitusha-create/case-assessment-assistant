@@ -8,19 +8,11 @@ uv run python -m caa.agents review case-002    # extract, draft and QA
 import argparse
 from datetime import date
 
-from azure.ai.projects import AIProjectClient
-from azure.identity import DefaultAzureCredential
-
 from caa.agents.definitions import publish_agents
-from caa.agents.orchestrator import draft_assessment, review_draft
+from caa.agents.pipeline import run_case, services_from_settings
 from caa.config import get_settings
-from caa.extraction.extractor import extract_facts
-from caa.ingestion.embeddings import embed_texts
-from caa.ingestion.pipeline import clients_from_settings
 from caa.models import Draft
 from caa.qa.report import QAReport
-from caa.retrieval.search import SearchHit, list_case_chunks, search_case
-from caa.rules import load_criteria
 from caa.synthetic import load_case
 
 
@@ -56,48 +48,22 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = get_settings()
-    settings.require("azure_foundry_project_endpoint")
-    credential = DefaultAzureCredential()
-    project = AIProjectClient(
-        endpoint=settings.azure_foundry_project_endpoint, credential=credential
-    )
+    services = services_from_settings(settings)
 
     if args.command == "publish":
-        for label in publish_agents(project, settings.chat_model_deployment):
+        for label in publish_agents(services.project, settings.chat_model_deployment):
             print(f"Published {label}")
         return
 
-    clients = clients_from_settings(settings, credential)
-    agents_openai = project.get_openai_client()
-    criteria = load_criteria()
-    case = load_case(args.case_id)
-    chunks = list_case_chunks(clients.search, case.case_id)
-
-    def search(query: str) -> list[SearchHit]:
-        [vector] = embed_texts(clients.openai, clients.embedding_deployment, [query])
-        return search_case(clients.search, case.case_id, query, vector)
-
-    facts = extract_facts(
-        clients.openai,
-        settings.chat_model_deployment,
-        criteria,
-        case.case_id,
-        case.assessment_type,
-        chunks,
+    run = run_case(
+        services, load_case(args.case_id), date.today(), with_qa=args.command == "review"
     )
-    print(f"Extracted {len(facts.facts)} facts")
-    result = draft_assessment(
-        agents_openai, criteria, case.case_id, case.assessment_type, facts, chunks, search
-    )
-    print_draft(result.draft)
-    if result.dropped_citations:
-        print(f"\nDropped citations to unknown chunks: {result.dropped_citations}")
-
-    if args.command == "review":
-        report = review_draft(
-            agents_openai, criteria, result.draft, chunks, search, case.start_date, date.today()
-        )
-        print_report(report)
+    print(f"Extracted {len(run.facts.facts)} facts")
+    print_draft(run.drafted.draft)
+    if run.drafted.dropped_citations:
+        print(f"\nDropped citations to unknown chunks: {run.drafted.dropped_citations}")
+    if run.report is not None:
+        print_report(run.report)
 
 
 if __name__ == "__main__":

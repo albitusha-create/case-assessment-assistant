@@ -17,6 +17,9 @@ dependencies = [
     "azure-search-documents>=12.1",
     "openai>=3.56",
     "azure-ai-projects>=2.0",
+    "azure-cosmos>=4.9",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
 ]
 
 [dependency-groups]
