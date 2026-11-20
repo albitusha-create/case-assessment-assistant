@@ -1,4 +1,4 @@
-"""The JSON shape the Drafting agent must return.
+"""The JSON shapes the Drafting and QA agents must return.
 
 Every field is required and extra keys are forbidden, so the schema works with
 strict structured output. The agent cites chunk ids only; our code looks up the
@@ -32,3 +32,17 @@ class DraftOutput(_Strict):
 
 def draft_json_schema() -> dict[str, Any]:
     return DraftOutput.model_json_schema()
+
+
+class QAFinding(_Strict):
+    item_id: str
+    passed: bool
+    details: list[str]
+
+
+class QAOutput(_Strict):
+    findings: list[QAFinding]
+
+
+def qa_json_schema() -> dict[str, Any]:
+    return QAOutput.model_json_schema()

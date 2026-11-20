@@ -15,10 +15,11 @@ from azure.ai.projects.models import (
     TextResponseFormatJsonSchema,
 )
 
-from caa.agents.schema import draft_json_schema
+from caa.agents.schema import draft_json_schema, qa_json_schema
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 DRAFTING_AGENT = "caa-drafting"
+QA_AGENT = "caa-qa"
 
 # Note there is no case_id parameter: the model cannot choose which case to read.
 GET_REQUIRED_SECTIONS = FunctionTool(
@@ -41,6 +42,18 @@ SEARCH_CASE_DOCUMENTS = FunctionTool(
     strict=True,
 )
 
+GET_CHUNKS = FunctionTool(
+    name="get_chunks",
+    description="Full text of chunks of this case by chunk id, with document and page.",
+    parameters={
+        "type": "object",
+        "properties": {"chunk_ids": {"type": "array", "items": {"type": "string"}}},
+        "required": ["chunk_ids"],
+        "additionalProperties": False,
+    },
+    strict=True,
+)
+
 
 def drafting_definition(model_deployment: str) -> PromptAgentDefinition:
     return PromptAgentDefinition(
@@ -55,11 +68,33 @@ def drafting_definition(model_deployment: str) -> PromptAgentDefinition:
     )
 
 
+def qa_definition(model_deployment: str) -> PromptAgentDefinition:
+    return PromptAgentDefinition(
+        model=model_deployment,
+        instructions=(PROMPTS_DIR / "qa.md").read_text(),
+        tools=[GET_CHUNKS, SEARCH_CASE_DOCUMENTS],
+        text=PromptAgentDefinitionTextOptions(
+            format=TextResponseFormatJsonSchema(
+                name="qa_findings", schema=qa_json_schema(), strict=True
+            )
+        ),
+    )
+
+
 def publish_agents(project: AIProjectClient, model_deployment: str) -> list[str]:
     """Create a new version of each agent. Returns "name:version" labels."""
-    version = project.agents.create_version(
-        agent_name=DRAFTING_AGENT,
-        definition=drafting_definition(model_deployment),
-        description="Drafts a cited case assessment from extracted facts.",
-    )
-    return [f"{version.name}:{version.version}"]
+    agents = [
+        (
+            DRAFTING_AGENT,
+            drafting_definition,
+            "Drafts a cited case assessment from extracted facts.",
+        ),
+        (QA_AGENT, qa_definition, "Checks a draft against the judgment items of the QA checklist."),
+    ]
+    labels: list[str] = []
+    for name, build, description in agents:
+        version = project.agents.create_version(
+            agent_name=name, definition=build(model_deployment), description=description
+        )
+        labels.append(f"{version.name}:{version.version}")
+    return labels
