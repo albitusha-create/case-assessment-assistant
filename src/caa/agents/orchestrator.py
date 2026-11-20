@@ -102,7 +102,9 @@ def format_qa_input(case_id: str, items: list[ChecklistItem], draft: Draft) -> s
         lines += ["", f"## {section.title} ({section.id})"]
         for claim in section.claims:
             cites = ", ".join(c.chunk_id for c in claim.citations) or "none"
-            lines.append(f"- {claim.text} [elements: {', '.join(claim.elements)}; chunks: {cites}]")
+            marker = "[gap statement] " if claim.is_gap_statement else ""
+            elements = ", ".join(claim.elements)
+            lines.append(f"- {marker}{claim.text} [elements: {elements}; chunks: {cites}]")
     return "\n".join(lines)
 
 

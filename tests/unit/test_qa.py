@@ -126,3 +126,14 @@ def test_report_with_only_warnings_can_be_approved(
     report = review_draft(fake, criteria, complete_draft, hits, lambda q: [], START, ON_TIME)
     assert report.can_approve
     assert {r.item_id for r in report.warnings} == {"person_first_language", "strengths_included"}
+
+
+def test_qa_input_marks_gap_statements(criteria: Criteria, complete_draft: Draft) -> None:
+    complete_draft.sections[-1].claims.append(
+        Claim(
+            text="No prior services are documented.",
+            elements=["information_gaps", "prior_services"],
+        )
+    )
+    text = format_qa_input("case-002", agent_items(criteria), complete_draft)
+    assert "- [gap statement] No prior services are documented." in text
