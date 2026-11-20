@@ -9,6 +9,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY src ./src
 COPY criteria ./criteria
+COPY data/synthetic/source ./data/synthetic/source
 RUN uv sync --frozen --no-dev
 
 RUN useradd --uid 10001 --no-create-home appuser

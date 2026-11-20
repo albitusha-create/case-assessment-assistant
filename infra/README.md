@@ -11,10 +11,11 @@
 | `docintel.bicep` | Document Intelligence | F0 |
 | `foundry.bicep` | Foundry resource, project, chat + embedding deployments, tracing connection | S0, Global Standard |
 | `cosmos.bicep` | Cosmos DB for NoSQL: `cases`, `drafts`, `audit_events` | Free tier |
+| `containerapp.bicep` | Container Apps environment, Container Registry, web app with Easy Auth | Consumption, Basic |
 | `keyvault.bicep` | Key Vault with RBAC | Standard |
 | `budget.bicep` | Monthly budget alert (only if `BUDGET_ALERT_EMAIL` is set) | |
 
-Container Apps and API Management are added in later steps.
+API Management is added in a later step.
 
 ## Provision
 
@@ -26,6 +27,21 @@ azd env set AZURE_SEARCH_LOCATION centralus      # optional: Free Search capacit
 azd provision
 azd env get-values
 ```
+
+## Deploy the web app with sign-in
+
+Docker must be running, because `azd deploy` builds the image locally and pushes it to the registry.
+
+```bash
+azd deploy                      # build, push, and roll out a new revision
+./scripts/entra_app.sh          # app registration, roles, and AUTH_CLIENT_ID
+azd provision                   # turns on Easy Auth with that client id
+azd env get-value WEB_URL
+```
+
+Until sign-in is on, every page except `/healthz` returns 401, because the app only trusts identities that Easy Auth passes in.
+
+The app scales to zero when idle, so the first request after a quiet spell takes a few seconds while a replica starts.
 
 ## Tear down
 

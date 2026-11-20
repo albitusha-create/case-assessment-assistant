@@ -13,5 +13,5 @@ echo "Resource groups still tagged for this project (should be empty):"
 az group list --tag project=case-assessment-assistant --query "[].name" -o tsv
 
 echo
-echo "Done. The Entra app registration (if created) is not deleted; remove it"
-echo "in Entra ID > App registrations when you are finished with the project."
+echo "Done. The Entra app registration caa-${ENV_NAME:-<env>} is kept so the roles"
+echo "survive a rebuild. Delete it in Entra ID > App registrations when you are finished."
