@@ -19,7 +19,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from pydantic import BaseModel, Field
 
 from caa.models import Draft
-from caa.qa.report import QAReport
+from caa.qa.report import CheckResult, QAReport
 
 CaseStatus = Literal["new", "in_review", "approved", "returned"]
 
@@ -28,12 +28,33 @@ def now() -> datetime:
     return datetime.now(UTC)
 
 
+class Dismissal(BaseModel):
+    """A supervisor's decision to override one AI-judged QA finding."""
+
+    by: str
+    reason: str
+    at: datetime = Field(default_factory=now)
+
+
 class CaseRecord(BaseModel):
     case_id: str
     status: CaseStatus = "new"
     draft: Draft | None = None
     report: QAReport | None = None
+    # item_id -> dismissal. Only agent-checked items can be dismissed.
+    dismissals: dict[str, Dismissal] = Field(default_factory=dict)
     updated_at: datetime = Field(default_factory=now)
+
+    @property
+    def open_blockers(self) -> list[CheckResult]:
+        """Blocking failures that still stop approval (not dismissed)."""
+        if self.report is None:
+            return []
+        return [r for r in self.report.blocking_failures if r.item_id not in self.dismissals]
+
+    @property
+    def can_approve(self) -> bool:
+        return self.report is not None and not self.open_blockers
 
 
 class AuditEvent(BaseModel):

@@ -18,16 +18,26 @@
   {% set report = record.report %}
   <h2>QA report</h2>
   <div class="card">
-    {% if report.can_approve %}<p class="ok"><strong>No blocking items.</strong> A supervisor can approve.</p>
-    {% else %}<p class="bad"><strong>{{ report.blocking_failures | length }} blocking item(s).</strong> Approval is blocked until they are fixed.</p>{% endif %}
+    {% if record.can_approve %}<p class="ok"><strong>No open blocking items.</strong> A supervisor can approve.</p>
+    {% else %}<p class="bad"><strong>{{ record.open_blockers | length }} blocking item(s).</strong> Approval is blocked until they are fixed{% if "Supervisor" in user.roles %} or, for AI-judged items, dismissed with a reason{% endif %}.</p>{% endif %}
     <div class="table-scroll"><table>
       {% for r in report.results %}
       <tr>
+        {% set dismissal = record.dismissals.get(r.item_id) %}
         <td>{% if r.passed %}<span class="pill ok">pass</span>
+            {% elif dismissal %}<span class="pill warn">dismissed</span>
             {% elif r.severity == "blocking" %}<span class="pill bad">fail</span>
             {% else %}<span class="pill warn">warning</span>{% endif %}</td>
-        <td>{{ r.description }} <span class="muted">({{ r.checked_by }})</span>
+        <td>{{ r.description }} <span class="muted">({{ "AI judged" if r.checked_by == "agent" else "rule" }})</span>
           {% if r.findings %}<ul class="claims">{% for f in r.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+          {% if dismissal %}<p class="muted">Dismissed by {{ dismissal.by }}: {{ dismissal.reason }}</p>
+          {% elif not r.passed and r.checked_by == "agent" and "Supervisor" in user.roles and record.status == "in_review" %}
+          <form method="post" action="/cases/{{ case.case_id }}/dismiss" class="actions">
+            <input type="hidden" name="item_id" value="{{ r.item_id }}">
+            <textarea name="reason" rows="1" placeholder="Why this finding does not apply (required)" required style="flex: 1; min-width: 200px;"></textarea>
+            <button type="submit" class="secondary">Dismiss</button>
+          </form>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}
@@ -41,7 +51,7 @@
   <h2>Decision</h2>
   <div class="card actions">
     <form method="post" action="/cases/{{ case.case_id }}/approve">
-      <button type="submit" {% if not report.can_approve %}disabled title="Blocking QA items remain"{% endif %}>Approve</button>
+      <button type="submit" {% if not record.can_approve %}disabled title="Blocking QA items remain"{% endif %}>Approve</button>
     </form>
     <form method="post" action="/cases/{{ case.case_id }}/return" style="flex: 1; min-width: 240px;">
       <textarea name="comment" rows="2" placeholder="What needs to change? (required)" required></textarea>

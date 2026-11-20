@@ -135,3 +135,78 @@ def test_outside_local_a_missing_principal_is_401(
     client = make_client(store, complete_draft)
     client.app.dependency_overrides[get_settings] = lambda: Settings(environment="azure")  # type: ignore[attr-defined]
     assert client.get("/").status_code == 401
+
+
+def rule_blocked_report() -> QAReport:
+    return QAReport(
+        case_id="case-002",
+        checklist_version="1.0.0",
+        results=[
+            CheckResult(
+                item_id="no_determinations",
+                description="No determinations.",
+                checked_by="rule",
+                severity="blocking",
+                passed=False,
+                findings=['"is high risk" in summary'],
+            )
+        ],
+        acknowledged_gaps=[],
+    )
+
+
+def test_supervisor_can_dismiss_an_agent_finding_then_approve(
+    store: MemoryStore, complete_draft: Draft
+) -> None:
+    client = make_client(store, complete_draft, blocking_fails=True)
+    client.post("/cases/case-002/run", headers=CASEWORKER)
+
+    form = {
+        "item_id": "conflicts_named",
+        "reason": "Both versions are cited in Current functioning.",
+    }
+    assert client.post("/cases/case-002/dismiss", headers=SUPERVISOR, data=form).status_code == 200
+    assert client.post("/cases/case-002/approve", headers=SUPERVISOR).status_code == 200
+
+    actions = [(e.action, e.details) for e in store.events[-2:]]
+    assert actions[0][0] == "finding_dismissed"
+    assert actions[0][1]["reason"] == form["reason"]
+    assert actions[1] == ("approved", {"dismissed_items": ["conflicts_named"]})
+
+
+def test_dismiss_needs_a_reason_and_the_supervisor_role(
+    store: MemoryStore, complete_draft: Draft
+) -> None:
+    client = make_client(store, complete_draft, blocking_fails=True)
+    client.post("/cases/case-002/run", headers=CASEWORKER)
+    form = {"item_id": "conflicts_named", "reason": ""}
+    assert client.post("/cases/case-002/dismiss", headers=SUPERVISOR, data=form).status_code == 409
+    form["reason"] = "Fine."
+    assert client.post("/cases/case-002/dismiss", headers=CASEWORKER, data=form).status_code == 403
+
+
+def test_rule_findings_cannot_be_dismissed(store: MemoryStore, complete_draft: Draft) -> None:
+    def runner(case: SyntheticCase) -> CaseRun:
+        facts = ExtractionResult(case_id=case.case_id, facts=[], rejected=[])
+        drafted = DraftResult(draft=complete_draft, dropped_citations=[])
+        return CaseRun(facts=facts, drafted=drafted, report=rule_blocked_report())
+
+    client = TestClient(create_app(store=store, runner=runner))
+    client.post("/cases/case-002/run", headers=CASEWORKER)
+    form = {"item_id": "no_determinations", "reason": "Looks fine to me."}
+
+    response = client.post("/cases/case-002/dismiss", headers=SUPERVISOR, data=form)
+
+    assert response.status_code == 409
+    assert "cannot be dismissed" in response.json()["detail"]
+    assert client.post("/cases/case-002/approve", headers=SUPERVISOR).status_code == 409
+
+
+def test_page_shows_dismiss_form_for_agent_findings(
+    store: MemoryStore, complete_draft: Draft
+) -> None:
+    client = make_client(store, complete_draft, blocking_fails=True)
+    client.post("/cases/case-002/run", headers=CASEWORKER)
+    page = client.get("/cases/case-002", headers=SUPERVISOR).text
+    assert 'action="/cases/case-002/dismiss"' in page
+    assert "AI judged" in page
