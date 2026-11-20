@@ -1,7 +1,7 @@
 # Required sections, required elements and due date rules per assessment type.
 # Deterministic code reads this file; the LLM never decides what is required.
 # Generic example values for a reference implementation, not any agency's policy.
-version: "0.1.0"
+version: "0.1.1"
 
 assessment_types:
   initial_assessment:
@@ -69,7 +69,7 @@ element_definitions:
   referral_source: Who referred the person, and when.
   reason_for_referral: The concerns, events, incidents or screening scores that led to the referral.
   client_stated_needs: What the person (or their caregiver) says they want or need.
-  prior_services: Services received before this referral, such as counseling, treatment or programs.
+  prior_services: Services received before this referral, such as counseling, treatment or programs. Not the current referral or services it arranges.
   family_social_history: Family members, relationships, and significant family or social events.
   health_history: Physical or mental health conditions, hospital stays, medications and sleep.
   substance_use_history: Use of alcohol, drugs or tobacco, or a statement that there is none. Not screen time or other habits.
