@@ -135,6 +135,7 @@ def test_to_draft_resolves_pages_and_drops_unknown_chunks() -> None:
                 title="Current functioning and strengths",
                 claims=[
                     ModelClaim(
+                        kind="fact",
                         text="Lives with grandmother.",
                         elements=["living_situation"],
                         chunk_ids=["c1", "case-001_made_up"],
@@ -171,6 +172,7 @@ def test_draft_assessment_end_to_end_with_a_fake_agent(criteria: Criteria) -> No
                     "title": "Current functioning and strengths",
                     "claims": [
                         {
+                            "kind": "fact",
                             "text": "Lives with grandmother.",
                             "elements": ["living_situation"],
                             "chunk_ids": ["c1"],
@@ -186,3 +188,20 @@ def test_draft_assessment_end_to_end_with_a_fake_agent(criteria: Criteria) -> No
     )
     assert result.draft.sections[0].claims[0].citations[0].page == 1
     assert "Lives with grandmother." in fake.requests[0]["input"]
+
+
+def test_gap_claims_become_gap_statements_wherever_they_are() -> None:
+    gap = ModelClaim(
+        kind="gap",
+        text="No substance use history is documented.",
+        elements=["substance_use_history"],
+        chunk_ids=["c1"],
+    )
+    output = DraftOutput(
+        sections=[ModelSection(id="history_background", title="History", claims=[gap])]
+    )
+    result = to_draft("case-002", "initial_assessment", output, [hit("c1")])
+    claim = result.draft.sections[0].claims[0]
+    assert claim.elements == ["information_gaps", "substance_use_history"]
+    assert claim.citations == []
+    assert claim.is_gap_statement
