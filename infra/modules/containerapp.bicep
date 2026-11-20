@@ -62,8 +62,9 @@ resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
-resource existingApp 'Microsoft.App/containerApps@2024-03-01' existing = if (exists) {
-  name: appName
+module current 'fetch-image.bicep' = {
+  name: 'fetch-web-image'
+  params: { name: appName, exists: exists }
 }
 
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
@@ -90,7 +91,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'web'
-          image: exists ? existingApp!.properties.template.containers[0].image : placeholderImage
+          image: empty(current.outputs.image) ? placeholderImage : current.outputs.image
           resources: { cpu: json('0.5'), memory: '1Gi' }
           env: concat(appSettings, [
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', secretRef: 'appinsights-connection-string' }
