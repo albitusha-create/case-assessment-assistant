@@ -1,21 +1,45 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, qa_summary %}
+{% block styles %}
+    .cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 16px; }
+    .case-card { display: flex; flex-direction: column; gap: 10px; margin: 0; color: var(--text); transition: border-color .15s; }
+    .case-card:hover { text-decoration: none; border-color: var(--accent); }
+    .case-card .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .case-id { font-weight: 700; font-size: 17px; }
+    .case-card p { margin: 0; }
+    .case-card .meta { font-size: 13px; color: var(--muted); }
+    .case-card .foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto;
+                       padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
+    .how { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 18px 0 4px; }
+    .how div { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); }
+    .how b { display: block; color: var(--text); font-size: 14px; }
+    .step-no { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+               display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+{% endblock %}
 {% block content %}
 <h1>Cases</h1>
-<div class="card table-scroll">
-  <table>
-    <tr><th>Case</th><th>Status</th><th>QA</th></tr>
-    {% for case_id, record in cases %}
-    <tr>
-      <td><a href="/cases/{{ case_id }}">{{ case_id }}</a></td>
-      <td>{{ (record.status if record else "new") | replace("_", " ") }}</td>
-      <td>
-        {% if record and record.report %}
-          {% if record.can_approve %}<span class="pill ok">no blocking items</span>
-          {% else %}<span class="pill bad">{{ record.open_blockers | length }} blocking</span>{% endif %}
-        {% else %}<span class="muted">not run</span>{% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
+<p class="lead">Each case is a small set of synthetic records. Open one to run extraction, drafting and QA, then review the draft.</p>
+
+<div class="how">
+  <div><span class="step-no">1</span><span><b>Caseworker runs the case</b>Facts are extracted with citations and a draft is written.</span></div>
+  <div><span class="step-no">2</span><span><b>QA checks the draft</b>Rules in code plus AI-judged items from the checklist.</span></div>
+  <div><span class="step-no">3</span><span><b>Supervisor decides</b>Approve, return with a comment, or dismiss an AI finding with a reason.</span></div>
+</div>
+
+<div class="cases">
+  {% for case, record in cases %}
+  <a class="card case-card" href="/cases/{{ case.case_id }}">
+    <div class="top">
+      <span class="case-id">{{ case.case_id }}</span>
+      {{ status_badge(record.status if record else "new") }}
+    </div>
+    {% if case.summary %}<p>{{ case.summary }}</p>{% endif %}
+    <p class="meta">{{ case.assessment_type | replace("_", " ") | capitalize }} &middot; started {{ case.start_date.strftime("%b %-d, %Y") }}</p>
+    <div class="foot">
+      <span>QA: {{ qa_summary(record) }}</span>
+      <span>Open &rarr;</span>
+    </div>
+  </a>
+  {% endfor %}
 </div>
 {% endblock %}

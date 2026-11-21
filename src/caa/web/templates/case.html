@@ -1,75 +1,274 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, citation %}
 {% block title %}{{ case.case_id }} &middot; Case Assessment Assistant{% endblock %}
-{% block content %}
-<h1>{{ case.case_id }}</h1>
-<p class="muted">{{ case.assessment_type | replace("_", " ") }} &middot; started {{ case.start_date }}
-  &middot; status <strong>{{ (record.status if record else "new") | replace("_", " ") }}</strong></p>
+{% block styles %}
+    .crumb { display: inline-block; margin-top: 20px; font-size: 13px; }
+    .title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .title-row h1 { margin-top: 8px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+    .meta b { color: var(--text); font-weight: 600; }
 
-<div class="actions">
-  {% if "Caseworker" in user.roles %}
-  <form method="post" action="/cases/{{ case.case_id }}/run"
-        onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Running, about a minute...';">
-    <button type="submit">{{ "Run again" if record else "Extract, draft and check" }}</button>
-  </form>
-  {% endif %}
+    /* Workflow stepper */
+    .steps { display: flex; gap: 0; margin: 20px 0 4px; padding: 0; list-style: none; counter-reset: s; }
+    .steps li { flex: 1; position: relative; padding-top: 30px; font-size: 13px; color: var(--muted); text-align: center; }
+    .steps li::before { counter-increment: s; content: counter(s); position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+                        width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; z-index: 1;
+                        background: var(--card); border: 2px solid var(--line); font-weight: 700; font-size: 12px; }
+    .steps li::after { content: ""; position: absolute; top: 11px; left: -50%; width: 100%; height: 2px; background: var(--line); }
+    .steps li:first-child::after { display: none; }
+    .steps li.done { color: var(--text); }
+    .steps li.done::before { content: "\2713"; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .steps li.done::after, .steps li.current::after { background: var(--accent); }
+    .steps li.current { color: var(--text); font-weight: 600; }
+    .steps li.current::before { border-color: var(--accent); color: var(--accent); }
+    .steps li.ok::before { background: var(--ok); border-color: var(--ok); }
+    .steps li.back::before { content: "!"; background: var(--warn); border-color: var(--warn); color: #fff; }
+
+    .callout { display: flex; gap: 12px; align-items: flex-start; border-radius: 12px; padding: 14px 18px; margin: 16px 0; border: 1px solid; }
+    .callout .icon { margin-top: 3px; }
+    .callout p { margin: 2px 0 0; }
+    .callout.ok { background: var(--ok-soft); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
+    .callout.warn { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+    .callout.bad { background: var(--bad-soft); color: var(--bad); border-color: color-mix(in srgb, var(--bad) 30%, transparent); }
+    .callout .body { color: var(--text); }
+    .callout .quote { margin-top: 6px; padding-left: 10px; border-left: 3px solid currentColor; font-style: italic; }
+
+    .run-card { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .run-card p { margin: 0; max-width: 60ch; }
+
+    /* QA report */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 14px; }
+    .stat { border-radius: 10px; padding: 10px 14px; background: var(--soft); }
+    .stat b { display: block; font-size: 22px; line-height: 1.2; }
+    .stat span { font-size: 12px; color: var(--muted); }
+    .stat.ok b { color: var(--ok); } .stat.bad b { color: var(--bad); } .stat.warn b { color: var(--warn); } .stat.info b { color: var(--info); }
+    .qa-item { display: grid; grid-template-columns: 112px 1fr; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+    .qa-item:first-of-type { border-top: 0; }
+    .qa-item .desc { font-weight: 600; }
+    .qa-item .tags { display: flex; gap: 6px; margin: 4px 0 0; flex-wrap: wrap; }
+    .findings { margin: 10px 0 0; padding: 10px 14px 10px 30px; background: var(--soft); border-radius: 8px; font-size: 14px; }
+    .findings li { margin: 2px 0; }
+    .note { display: flex; gap: 6px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+    .dismissed { margin: 10px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); font-size: 14px; }
+    .dismissed b { color: var(--warn); }
+    details.dismiss { margin-top: 10px; }
+    details.dismiss summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+                              color: var(--warn); list-style: none; padding: 4px 10px; border-radius: 8px;
+                              border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }
+    details.dismiss summary::-webkit-details-marker { display: none; }
+    details.dismiss[open] summary { margin-bottom: 8px; }
+    details.dismiss form { display: grid; gap: 8px; max-width: 640px; }
+    details.passed > summary { cursor: pointer; font-weight: 600; padding: 12px 0 2px; border-top: 1px solid var(--line); }
+    .pass-list { list-style: none; margin: 8px 0 0; padding: 0; }
+    .pass-list li { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; font-size: 14px; }
+    .pass-list li .icon { color: var(--ok); }
+    .gaps { margin: 14px 0 0; font-size: 13px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+    /* Decision */
+    .decision { display: grid; grid-template-columns: 1fr 1.4fr; gap: 14px; }
+    .decision .card { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+    .decision h3 { margin: 0; font-size: 15px; }
+    .decision p { margin: 0; font-size: 13px; color: var(--muted); }
+    .decision form { display: grid; gap: 8px; margin-top: auto; }
+    .decision form button { justify-self: start; }
+
+    /* Draft */
+    .section h3 { margin: 0 0 8px; font-size: 16px; }
+    .claims { list-style: none; margin: 0; padding: 0; }
+    .claims li { padding: 8px 0; border-top: 1px dashed var(--line); }
+    .claims li:first-child { border-top: 0; }
+    .claim-cites { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 4px; vertical-align: 1px; }
+    .cite { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 1px 8px;
+            border-radius: 6px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+    .cite .icon { width: 13px; height: 13px; }
+    .cite-page { opacity: .8; }
+    .cite.gap { background: var(--warn-soft); color: var(--warn); }
+    .cite.missing { background: var(--bad-soft); color: var(--bad); }
+    .claims li.is-gap { color: var(--muted); font-style: italic; }
+
+    /* Audit log */
+    .timeline { list-style: none; margin: 0; padding: 0; }
+    .timeline li { position: relative; padding: 0 0 18px 28px; }
+    .timeline li::before { content: ""; position: absolute; left: 7px; top: 18px; bottom: -2px; width: 2px; background: var(--line); }
+    .timeline li:last-child { padding-bottom: 0; }
+    .timeline li:last-child::before { display: none; }
+    .dot { position: absolute; left: 0; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--soft);
+           border: 3px solid var(--muted); }
+    .dot.ok { border-color: var(--ok); } .dot.warn { border-color: var(--warn); } .dot.info { border-color: var(--info); } .dot.accent { border-color: var(--accent); }
+    .ev-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+    .ev-head b { font-weight: 600; }
+    .ev-time { font-size: 12px; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+    .ev-details { margin: 4px 0 0; font-size: 13px; color: var(--muted); display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; }
+    .ev-details dt { font-weight: 600; }
+    .ev-details dd { margin: 0; overflow-wrap: anywhere; }
+
+    @media (max-width: 720px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .decision { grid-template-columns: 1fr; }
+      .qa-item { grid-template-columns: 1fr; gap: 6px; }
+      .steps li { font-size: 11px; }
+    }
+{% endblock %}
+{% block content %}
+{% set status = record.status if record else "new" %}
+{% set is_supervisor = "Supervisor" in user.roles %}
+{% set is_caseworker = "Caseworker" in user.roles %}
+{% set returns = events | selectattr("action", "equalto", "returned") | list %}
+{% set approvals = events | selectattr("action", "equalto", "approved") | list %}
+
+<a class="crumb" href="/">&larr; All cases</a>
+<div class="title-row">
+  <h1>{{ case.case_id }}</h1>
+  {{ status_badge(status) }}
 </div>
+{% if case.summary %}<p class="lead">{{ case.summary }}</p>{% endif %}
+<div class="meta">
+  <span>Type <b>{{ case.assessment_type | replace("_", " ") | capitalize }}</b></span>
+  <span>Started <b>{{ case.start_date.strftime("%b %-d, %Y") }}</b></span>
+  {% if record %}<span>Updated <b>{{ record.updated_at.strftime("%b %-d, %H:%M") }} UTC</b></span>{% endif %}
+</div>
+
+<ol class="steps" aria-label="Workflow">
+  <li class="{{ 'done' if record else 'current' }}">Run case</li>
+  <li class="{{ 'done' if record else '' }}">Draft and QA</li>
+  <li class="{{ 'current' if status == 'in_review' else ('done' if status in ('approved', 'returned') else '') }}">Supervisor review</li>
+  <li class="{{ 'done ok' if status == 'approved' else ('done back' if status == 'returned' else '') }}">{{ "Returned" if status == "returned" else "Approved" }}</li>
+</ol>
+
+{% if status == "approved" and approvals %}
+  {% set ev = approvals | last %}
+  <div class="callout ok">{{ icon("check") }}<div class="body"><strong>Approved by {{ ev.actor }}</strong> on {{ ev.at.strftime("%b %-d at %H:%M") }} UTC.
+    {% if ev.details.dismissed_items %}<p class="muted small">With dismissed AI findings: {{ ev.details.dismissed_items | map("replace", "_", " ") | join(", ") }}.</p>{% endif %}</div></div>
+{% elif status == "returned" and returns %}
+  {% set ev = returns | last %}
+  <div class="callout warn">{{ icon("undo") }}<div class="body"><strong>Returned for changes by {{ ev.actor }}</strong> on {{ ev.at.strftime("%b %-d at %H:%M") }} UTC.
+    <p class="quote">{{ ev.details.comment }}</p>
+    {% if is_caseworker %}<p class="muted small">Update the records, then run the case again.</p>{% endif %}</div></div>
+{% endif %}
+
+{% if is_caseworker %}
+<div class="card run-card">
+  <p>{% if record %}Run the case again to re-extract facts, redraft and re-check. The current draft and QA report are replaced; the audit log keeps everything.
+     {% else %}Extract cited facts from this case's records, draft the assessment, and run the QA checklist. Takes about a minute.{% endif %}</p>
+  <form method="post" action="/cases/{{ case.case_id }}/run"
+        onsubmit="var b = this.querySelector('button'); b.disabled = true; b.lastChild.textContent = ' Running, about a minute...';">
+    <button type="submit">{{ icon("play") }}<span> {{ "Run again" if record else "Extract, draft and check" }}</span></button>
+  </form>
+</div>
+{% endif %}
 
 {% if record and record.draft %}
   {% set report = record.report %}
-  <h2>QA report</h2>
+  {% set ns = namespace(passed=[], attention=[], warnings=0, dismissed=0) %}
+  {% for r in report.results %}
+    {% if r.passed %}{% set ns.passed = ns.passed + [r] %}{% else %}{% set ns.attention = ns.attention + [r] %}
+      {% if r.item_id in record.dismissals %}{% set ns.dismissed = ns.dismissed + 1 %}
+      {% elif r.severity == "warning" %}{% set ns.warnings = ns.warnings + 1 %}{% endif %}
+    {% endif %}
+  {% endfor %}
+
+  <h2>QA report <span class="count">checklist v{{ report.checklist_version }}</span></h2>
   <div class="card">
-    {% if record.can_approve %}<p class="ok"><strong>No open blocking items.</strong> A supervisor can approve.</p>
-    {% else %}<p class="bad"><strong>{{ record.open_blockers | length }} blocking item(s).</strong> Approval is blocked until they are fixed{% if "Supervisor" in user.roles %} or, for AI-judged items, dismissed with a reason{% endif %}.</p>{% endif %}
-    <div class="table-scroll"><table>
-      {% for r in report.results %}
-      <tr>
-        {% set dismissal = record.dismissals.get(r.item_id) %}
-        <td>{% if r.passed %}<span class="pill ok">pass</span>
-            {% elif dismissal %}<span class="pill warn">dismissed</span>
-            {% elif r.severity == "blocking" %}<span class="pill bad">fail</span>
-            {% else %}<span class="pill warn">warning</span>{% endif %}</td>
-        <td>{{ r.description }} <span class="muted">({{ "AI judged" if r.checked_by == "agent" else "rule" }})</span>
-          {% if r.findings %}<ul class="claims">{% for f in r.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
-          {% if dismissal %}<p class="muted">Dismissed by {{ dismissal.by }}: {{ dismissal.reason }}</p>
-          {% elif not r.passed and r.checked_by == "agent" and "Supervisor" in user.roles and record.status == "in_review" %}
-          <form method="post" action="/cases/{{ case.case_id }}/dismiss" class="actions">
-            <input type="hidden" name="item_id" value="{{ r.item_id }}">
-            <textarea name="reason" rows="1" placeholder="Why this finding does not apply (required)" required style="flex: 1; min-width: 200px;"></textarea>
-            <button type="submit" class="secondary">Dismiss</button>
-          </form>
+    <div class="stats">
+      <div class="stat ok"><b>{{ ns.passed | length }}</b><span>passed</span></div>
+      <div class="stat {{ 'bad' if record.open_blockers else 'ok' }}"><b>{{ record.open_blockers | length }}</b><span>blocking, open</span></div>
+      <div class="stat warn"><b>{{ ns.warnings }}</b><span>warnings</span></div>
+      <div class="stat info"><b>{{ ns.dismissed }}</b><span>dismissed</span></div>
+    </div>
+
+    {% if record.can_approve %}
+      <div class="callout ok">{{ icon("check") }}<div class="body"><strong>No open blocking items.</strong>{% if status == "in_review" %} A supervisor can approve this draft.{% endif %}</div></div>
+    {% else %}
+      <div class="callout bad">{{ icon("lock") }}<div class="body"><strong>Approval is blocked by {{ record.open_blockers | length }} item{{ "s" if record.open_blockers | length != 1 }}.</strong>
+        Rule failures must be fixed in the draft. AI-judged findings can be dismissed by a supervisor with a written reason.</div></div>
+    {% endif %}
+
+    {% for r in ns.attention %}
+      {% set dismissal = record.dismissals.get(r.item_id) %}
+      <div class="qa-item">
+        <div>
+          {% if dismissal %}<span class="badge tone-info">{{ icon("check") }} Dismissed</span>
+          {% elif r.severity == "blocking" %}<span class="badge tone-bad">{{ icon("x") }} Fail</span>
+          {% else %}<span class="badge tone-warn">{{ icon("alert") }} Warning</span>{% endif %}
+        </div>
+        <div>
+          <div class="desc">{{ r.description }}</div>
+          <div class="tags">
+            {% if r.checked_by == "agent" %}<span class="tag ai">{{ icon("ai") }} AI judged</span>{% else %}<span class="tag">{{ icon("rule") }} Rule</span>{% endif %}
+            <span class="tag">{{ r.severity }}</span>
+          </div>
+          {% if r.findings %}<ul class="findings">{% for f in r.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+          {% if dismissal %}
+            <div class="dismissed"><b>Dismissed by {{ dismissal.by }}</b> <span class="muted small">{{ dismissal.at.strftime("%b %-d, %H:%M") }} UTC</span><br>{{ dismissal.reason }}</div>
+          {% elif r.checked_by == "agent" and is_supervisor and status == "in_review" %}
+            <details class="dismiss">
+              <summary>{{ icon("x") }} Dismiss with a reason</summary>
+              <form method="post" action="/cases/{{ case.case_id }}/dismiss">
+                <input type="hidden" name="item_id" value="{{ r.item_id }}">
+                <textarea name="reason" rows="2" placeholder="Why this finding does not apply (required, saved to the audit log)" required></textarea>
+                <div class="actions"><button type="submit" class="warn">Dismiss finding</button></div>
+              </form>
+            </details>
+          {% elif r.checked_by == "rule" and r.severity == "blocking" %}
+            <p class="note">{{ icon("lock") }} Checked by a rule, so it cannot be dismissed. Fix the draft and run again.</p>
           {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </table></div>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% if ns.passed %}
+    <details class="passed"{% if not ns.attention %} open{% endif %}>
+      <summary>{{ ns.passed | length }} passed check{{ "s" if ns.passed | length != 1 }}</summary>
+      <ul class="pass-list">
+        {% for r in ns.passed %}<li>{{ icon("check") }}<span>{{ r.description }} {% if r.checked_by == "agent" %}<span class="tag ai">AI judged</span>{% else %}<span class="tag">Rule</span>{% endif %}</span></li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+
     {% if report.acknowledged_gaps %}
-    <p class="muted">Known gaps: {{ report.acknowledged_gaps | map(attribute="element") | map("replace", "_", " ") | join(", ") }}</p>
+    <p class="gaps">{{ icon("gap") }} Known information gaps, stated in the draft:
+      {% for g in report.acknowledged_gaps %}<span class="cite gap">{{ g.element | replace("_", " ") }}</span>{% endfor %}</p>
     {% endif %}
   </div>
 
-  {% if "Supervisor" in user.roles and record.status == "in_review" %}
+  {% if is_supervisor and status == "in_review" %}
   <h2>Decision</h2>
-  <div class="card actions">
-    <form method="post" action="/cases/{{ case.case_id }}/approve">
-      <button type="submit" {% if not record.can_approve %}disabled title="Blocking QA items remain"{% endif %}>Approve</button>
-    </form>
-    <form method="post" action="/cases/{{ case.case_id }}/return" style="flex: 1; min-width: 240px;">
-      <textarea name="comment" rows="2" placeholder="What needs to change? (required)" required></textarea>
-      <button type="submit" class="secondary">Return for changes</button>
-    </form>
+  <div class="decision">
+    <div class="card">
+      <h3>Approve</h3>
+      {% if record.can_approve %}<p>All blocking items are resolved. Approval is recorded with your name and any dismissed findings.</p>
+      {% else %}<p>{{ icon("lock") }} Locked until {{ record.open_blockers | length }} blocking item{{ "s" if record.open_blockers | length != 1 }} {{ "are" if record.open_blockers | length != 1 else "is" }} resolved.</p>{% endif %}
+      <form method="post" action="/cases/{{ case.case_id }}/approve">
+        <button type="submit" class="approve" {% if not record.can_approve %}disabled title="Blocking QA items remain"{% endif %}>{{ icon("check") }} Approve draft</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Return for changes</h3>
+      <p>Send the draft back to the caseworker. A comment is required and goes to the audit log.</p>
+      <form method="post" action="/cases/{{ case.case_id }}/return">
+        <textarea name="comment" rows="3" placeholder="What needs to change? (required)" required></textarea>
+        <button type="submit" class="secondary">{{ icon("undo") }} Return for changes</button>
+      </form>
+    </div>
   </div>
   {% endif %}
 
-  <h2>Draft</h2>
+  {% set cn = namespace(total=0, cited=0, gaps=0) %}
+  {% for section in record.draft.sections %}{% for claim in section.claims %}
+    {% set cn.total = cn.total + 1 %}
+    {% if claim.citations %}{% set cn.cited = cn.cited + 1 %}{% elif claim.is_gap_statement %}{% set cn.gaps = cn.gaps + 1 %}{% endif %}
+  {% endfor %}{% endfor %}
+  <h2>Draft <span class="count">{{ cn.total }} statements &middot; {{ cn.cited }} cited &middot; {{ cn.gaps }} gap statement{{ "s" if cn.gaps != 1 }}</span></h2>
   {% for section in record.draft.sections %}
-  <div class="card">
-    <strong>{{ section.title }}</strong>
+  <div class="card section">
+    <h3>{{ section.title }}</h3>
     <ul class="claims">
       {% for claim in section.claims %}
-      <li>{{ claim.text }}
-        <span class="cite">
-          {% if claim.citations %}[{% for c in claim.citations %}{{ c.doc_id }} p{{ c.page }}{% if not loop.last %}, {% endif %}{% endfor %}]
-          {% elif claim.is_gap_statement %}{% if claim.elements|length > 1 %}[information gap]{% else %}[no gaps found]{% endif %}{% else %}<span class="bad">[no citation]</span>{% endif %}
+      <li{% if claim.is_gap_statement %} class="is-gap"{% endif %}>{{ claim.text }}
+        <span class="claim-cites">
+          {% if claim.citations %}{% for c in claim.citations %}{{ citation(c) }}{% endfor %}
+          {% elif claim.is_gap_statement %}<span class="cite gap">{{ icon("gap") }}{% if claim.elements | length > 1 %}Information gap{% else %}No gaps found{% endif %}</span>
+          {% else %}<span class="cite missing">{{ icon("alert") }}No citation</span>{% endif %}
         </span>
       </li>
       {% endfor %}
@@ -78,20 +277,31 @@
   {% endfor %}
 {% endif %}
 
-<h2>Audit log</h2>
-<div class="card table-scroll">
+{% set action_labels = {"run_started": "Run started", "drafted": "Draft written", "qa_completed": "QA completed",
+                        "finding_dismissed": "Finding dismissed", "approved": "Approved", "returned": "Returned for changes"} %}
+{% set action_tone = {"run_started": "accent", "drafted": "info", "qa_completed": "info", "finding_dismissed": "warn",
+                      "approved": "ok", "returned": "warn"} %}
+<h2>Audit log <span class="count">append-only, times in UTC</span></h2>
+<div class="card">
   {% if events %}
-  <table>
-    <tr><th>When (UTC)</th><th>Who</th><th>What</th><th>Details</th></tr>
+  <ol class="timeline">
     {% for e in events %}
-    <tr>
-      <td class="muted">{{ e.at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
-      <td>{{ e.actor }}</td>
-      <td>{{ e.action | replace("_", " ") }}</td>
-      <td class="muted">{% for k, v in e.details.items() %}{{ k | replace("_", " ") }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
-    </tr>
+    <li>
+      <span class="dot {{ action_tone.get(e.action, '') }}"></span>
+      <div class="ev-head"><b>{{ action_labels.get(e.action, e.action | replace("_", " ") | capitalize) }}</b>
+        <span class="muted small">by {{ e.actor }}</span>
+        <span class="ev-time">{{ e.at.strftime("%Y-%m-%d %H:%M:%S") }}</span></div>
+      {% if e.details %}
+      <dl class="ev-details">
+        {% for k, v in e.details.items() %}
+        <dt>{{ k | replace("_", " ") | capitalize }}</dt>
+        <dd>{% if v is string %}{{ v | replace("_", " ") if k in ("item_id",) else v }}{% elif v is sameas true %}yes{% elif v is sameas false %}no{% elif v is iterable %}{{ (v | join(", ")) or "none" }}{% else %}{{ v }}{% endif %}</dd>
+        {% endfor %}
+      </dl>
+      {% endif %}
+    </li>
     {% endfor %}
-  </table>
+  </ol>
   {% else %}<p class="muted">No events yet.</p>{% endif %}
 </div>
 {% endblock %}

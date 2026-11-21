@@ -4,7 +4,6 @@ Pages use plain HTML forms that post and redirect back to the case page, so
 there is no front-end framework to explain.
 """
 
-from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -26,6 +25,21 @@ from caa.synthetic import SyntheticCase, list_case_ids, load_case
 
 TEMPLATES = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "web" / "templates")
 router = APIRouter()
+
+
+def doc_label(doc_id: str) -> str:
+    """Turn a document id such as "01-intake-note" into "Intake note" for citations."""
+    words = [w for w in doc_id.split("-") if not w.isdigit()]
+    return " ".join(words).capitalize() or doc_id
+
+
+def initials(name: str) -> str:
+    """Up to two initials for the header avatar, e.g. "Pat Doe" -> "PD"."""
+    return "".join(part[0] for part in name.split()[:2]).upper() or "?"
+
+
+TEMPLATES.env.filters["doc_label"] = doc_label
+TEMPLATES.env.filters["initials"] = initials
 
 
 def get_store(request: Request) -> Store:
@@ -57,7 +71,7 @@ def back_to_case(case_id: str) -> RedirectResponse:
 def index(
     request: Request, store: StoreDep, user: Annotated[User, Depends(current_user)]
 ) -> HTMLResponse:
-    cases = [(case_id, store.get_case(case_id)) for case_id in list_case_ids()]
+    cases = [(load_case(case_id), store.get_case(case_id)) for case_id in list_case_ids()]
     return TEMPLATES.TemplateResponse(request, "index.html", {"cases": cases, "user": user})
 
 
@@ -70,7 +84,6 @@ def case_page(
         "record": store.get_case(case.case_id),
         "events": store.list_events(case.case_id),
         "user": user,
-        "today": date.today(),
     }
     return TEMPLATES.TemplateResponse(request, "case.html", context)
 
