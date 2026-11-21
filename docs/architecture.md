@@ -63,3 +63,33 @@ sequenceDiagram
     SV->>App: Approve, return with comment, or dismiss an AI-judged finding with a reason
     App->>Audit: approved / returned / finding_dismissed (user, time, reason)
 ```
+
+## Integration: the agency's system of record
+
+Workers submit the assessment in the agency's own case management system, not in this app. The repo includes a mock of that system at `/portal` (its own pages, state and REST API v1) and integrates with it as a client. See [ADR 0006](adr/0006-integrate-with-the-system-of-record.md).
+
+```mermaid
+sequenceDiagram
+    actor CW as Caseworker
+    actor SV as Supervisor
+    participant App as Case Assessment Assistant
+    participant Portal as Agency portal (mock)
+    participant Audit as Cosmos audit log
+
+    CW->>App: Run assessment
+    App->>Portal: GET /cases/{id}
+    App->>Audit: portal_case_pulled
+    Note over App: extract, draft, QA (as above)
+    SV->>App: Approve
+    App->>Portal: GET form schema, PUT /cases/{id}/assessment/draft (Idempotency-Key)
+    Portal-->>App: 200 draft saved (409 if the worker already edited or submitted)
+    App->>Audit: portal_draft_pushed
+    CW->>Portal: Review, edit, tick attestation, Submit
+    Portal->>App: POST webhook, HMAC signed
+    App->>Audit: submitted_in_portal (sections changed by worker)
+```
+
+- **No submit in the API.** Only a signed-in worker submits, in the portal.
+- **Portal-side rules** hold for every caller: clinical sections and the self-rating cannot be pre-filled, a form the worker edited or submitted is never overwritten, and saves are idempotent.
+- **MCP tools** at `/mcp` wrap the same client: four read tools and `portal_send_approved_draft(case_id)`, which runs the approval check. The endpoint answers only requests addressed to localhost.
+- **In Azure** the mock runs in the same container. The client calls it over `127.0.0.1`, so Easy Auth, which guards ingress, is not in the path. `PORTAL_BASE_URL` points the same client at a real external system.
