@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from caa.integrations.form_mapping import draft_to_form
+from caa.integrations.portal_client import PortalClient
 from caa.models import GAP_ELEMENT, Claim, Draft
 from caa.portal.form import SCHEMA
 from caa.portal.store import PortalStore
@@ -140,3 +141,17 @@ def test_webhook_needs_a_valid_signature(store: MemoryStore, complete_draft: Dra
     response = client.post(EVENTS_PATH, content=body, headers={SIGNATURE_HEADER: "sha256=0"})
     assert response.status_code == 401
     assert actions(store) == []
+
+
+def test_client_sends_no_auth_header_without_a_key() -> None:
+    seen: list[httpx.Headers] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers)
+        return httpx.Response(200, json=[])
+
+    http = httpx.Client(base_url="http://portal", transport=httpx.MockTransport(handler))
+    PortalClient(http, "").list_cases()
+    PortalClient(http, "k3y").list_cases()
+    assert "authorization" not in seen[0]
+    assert seen[1]["authorization"] == "Bearer k3y"
