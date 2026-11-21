@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% set titles = {401: "Sign-in required", 403: "You don't have access to this action", 404: "Not found", 409: "This action isn't available right now"} %}
+{% block title %}{{ titles.get(status_code, "Something went wrong") }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Cases</a></nav>
+  <h1>{{ titles.get(status_code, "Something went wrong") }}</h1>
+</div>
+<div class="alert {{ 'alert-warning' if status_code == 409 else 'alert-danger' }}" style="max-width: 720px">
+  <span>{{ detail }}</span>
+  <span class="secondary xs">Error {{ status_code }}</span>
+</div>
+<p style="margin-top: var(--sp-4)"><a class="btn" href="/">Back to cases</a></p>
+{% endblock %}

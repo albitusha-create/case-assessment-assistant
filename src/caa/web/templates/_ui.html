@@ -1,0 +1,15 @@
+{# Shared bits of markup. Status words come from the store's CaseStatus values. #}
+{% set STATUS_LABELS = {"new": "Not started", "in_review": "Awaiting supervisor review", "approved": "Approved", "returned": "Returned for changes"} %}
+
+{% macro status(value, large=false) -%}
+<span class="status status-{{ value }}{% if large %} status-lg{% endif %}">{{ STATUS_LABELS.get(value, value | replace("_", " ")) }}</span>
+{%- endmacro %}
+
+{% macro run_button(case_id, has_record, primary=true) -%}
+<form method="post" action="/cases/{{ case_id }}/run" class="run-form"
+      onsubmit="var b = this.querySelector('button'); b.disabled = true; b.setAttribute('aria-busy', 'true'); b.querySelector('.label').textContent = 'Running assessment';">
+  <button type="submit" class="btn{% if primary %} btn-primary{% endif %}">
+    <span class="spinner" aria-hidden="true"></span><span class="label">{{ "Re-run assessment" if has_record else "Run assessment" }}</span>
+  </button>
+</form>
+{%- endmacro %}

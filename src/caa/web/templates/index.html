@@ -1,21 +1,78 @@
 {% extends "base.html" %}
+{% from "_ui.html" import status %}
+{% set nav = "cases" %}
+{% block title %}Cases{% endblock %}
 {% block content %}
-<h1>Cases</h1>
-<div class="card table-scroll">
+{% set is_supervisor = "Supervisor" in user.roles %}
+{% set is_caseworker = "Caseworker" in user.roles %}
+{% set counts = {"new": 0, "in_review": 0, "returned": 0, "approved": 0} %}
+{% for row in rows %}{% set key = row.record.status if row.record else "new" %}{% set _ = counts.update({key: counts[key] + 1}) %}{% endfor %}
+
+<div class="page-header">
+  <div class="title-row">
+    <div class="title"><h1>Cases</h1></div>
+  </div>
+  <p class="description">Assessments in this environment. A caseworker runs each assessment; a supervisor reviews the draft and QA results before it is approved.</p>
+</div>
+
+<div class="summary-strip" aria-label="Cases by status">
+  <div><span class="label">Awaiting supervisor review</span><span class="value">{{ counts.in_review }}</span></div>
+  <div><span class="label">Returned for changes</span><span class="value">{{ counts.returned }}</span></div>
+  <div><span class="label">Approved</span><span class="value">{{ counts.approved }}</span></div>
+  <div><span class="label">Not started</span><span class="value">{{ counts.new }}</span></div>
+</div>
+
+{% if rows %}
+<div class="table-wrap">
   <table>
-    <tr><th>Case</th><th>Status</th><th>QA</th></tr>
-    {% for case_id, record in cases %}
-    <tr>
-      <td><a href="/cases/{{ case_id }}">{{ case_id }}</a></td>
-      <td>{{ (record.status if record else "new") | replace("_", " ") }}</td>
-      <td>
-        {% if record and record.report %}
-          {% if record.can_approve %}<span class="pill ok">no blocking items</span>
-          {% else %}<span class="pill bad">{{ record.open_blockers | length }} blocking</span>{% endif %}
-        {% else %}<span class="muted">not run</span>{% endif %}
-      </td>
-    </tr>
-    {% endfor %}
+    <thead>
+      <tr>
+        <th scope="col">Case</th>
+        <th scope="col">Assessment</th>
+        <th scope="col">Status</th>
+        <th scope="col">QA</th>
+        <th scope="col">Last run by</th>
+        <th scope="col">Last activity (UTC)</th>
+        <th scope="col"><span class="visually-hidden">Actions</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {% set case, record = row.case, row.record %}
+      {% set st = record.status if record else "new" %}
+      <tr class="row-link">
+        <td>
+          <a class="cell-title mono" href="/cases/{{ case.case_id }}">{{ case.case_id }}</a>
+          {% if case.summary %}<div class="cell-sub">{{ case.summary }}</div>{% endif %}
+        </td>
+        <td class="nowrap">{{ case.assessment_type | replace("_", " ") | capitalize }}<div class="cell-sub">Started {{ case.start_date.strftime("%b") }} {{ case.start_date.day }}, {{ case.start_date.year }}</div></td>
+        <td>{{ status(st) }}</td>
+        <td class="nowrap">
+          {% if record and record.report %}
+            {% set blockers = record.open_blockers | length %}
+            {% set warnings = record.report.warnings | rejectattr("item_id", "in", record.dismissals) | list | length %}
+            {% if blockers %}<span class="text-danger">{{ blockers }} blocking</span>{% else %}No blockers{% endif %}
+            {% if warnings %}<div class="cell-sub">{{ warnings }} warning{{ "s" if warnings != 1 }}</div>{% endif %}
+          {% else %}<span class="secondary">Not run</span>{% endif %}
+        </td>
+        <td class="nowrap">{{ row.run_by or "" }}{% if not row.run_by %}<span class="secondary">None</span>{% endif %}</td>
+        <td>
+          {% if row.last_event %}
+            {{ ACTION_LABELS.get(row.last_event.action, row.last_event.action | replace("_", " ") | capitalize) }}
+            <div class="cell-sub">{{ row.last_event.at | when }} by {{ row.last_event.actor }}</div>
+          {% else %}<span class="secondary">No activity</span>{% endif %}
+        </td>
+        <td class="actions">
+          {% if is_supervisor and st == "in_review" %}<a class="btn btn-sm btn-primary" href="/cases/{{ case.case_id }}?tab=qa">Review</a>
+          {% elif is_caseworker and st in ("new", "returned") %}<a class="btn btn-sm" href="/cases/{{ case.case_id }}">{{ "Run" if st == "new" else "Revise" }}</a>
+          {% else %}<a class="btn btn-sm" href="/cases/{{ case.case_id }}">Open</a>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
   </table>
 </div>
+{% else %}
+<div class="empty"><h2>No cases</h2><p>No synthetic cases were found in data/synthetic/source.</p></div>
+{% endif %}
 {% endblock %}
