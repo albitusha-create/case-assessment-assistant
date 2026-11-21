@@ -1,97 +1,320 @@
 {% extends "base.html" %}
-{% block title %}{{ case.case_id }} &middot; Case Assessment Assistant{% endblock %}
-{% block content %}
-<h1>{{ case.case_id }}</h1>
-<p class="muted">{{ case.assessment_type | replace("_", " ") }} &middot; started {{ case.start_date }}
-  &middot; status <strong>{{ (record.status if record else "new") | replace("_", " ") }}</strong></p>
+{% from "_ui.html" import status, run_button %}
+{% set nav = "cases" %}
+{% block title %}{{ case.case_id }}{% endblock %}
 
-<div class="actions">
-  {% if "Caseworker" in user.roles %}
-  <form method="post" action="/cases/{{ case.case_id }}/run"
-        onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Running, about a minute...';">
-    <button type="submit">{{ "Run again" if record else "Extract, draft and check" }}</button>
-  </form>
-  {% endif %}
+{# One QA result as a table row, plus a detail row for findings and the dismiss form. #}
+{% macro qa_row(r, record, case_id, can_dismiss) -%}
+{% set dismissal = record.dismissals.get(r.item_id) %}
+{% set has_detail = (not r.passed) and (r.findings or (r.checked_by == "agent" and can_dismiss and not dismissal)) %}
+<tr{% if has_detail %} class="has-detail"{% endif %}>
+  <td>
+    {% if r.passed %}<span class="result result-pass">Pass</span>
+    {% elif dismissal %}<span class="result result-dismissed">Dismissed</span>
+    {% elif r.severity == "blocking" %}<span class="result result-fail">Fail</span>
+    {% else %}<span class="result result-warn">Warning</span>{% endif %}
+  </td>
+  <td>{{ r.description }}<div class="cell-sub mono xs">{{ r.item_id }}</div></td>
+  <td class="nowrap">{{ "Blocking" if r.severity == "blocking" else "Warning" }}</td>
+  <td class="resolution">
+    {% if r.passed %}<span class="secondary">None needed</span>
+    {% elif dismissal %}Dismissed by {{ dismissal.by }}<div class="who xs">{{ dismissal.at | when }} UTC</div><div class="dismissal">{{ dismissal.reason }}</div>
+    {% elif r.checked_by == "rule" %}{% if r.severity == "blocking" %}Fix the draft and re-run{% else %}<span class="secondary">Shown to reviewer; does not block</span>{% endif %}
+    {% else %}{% if r.severity == "blocking" %}Open, blocks approval{% else %}Open{% endif %}{% endif %}
+  </td>
+</tr>
+{% if has_detail %}
+<tr class="detail">
+  <td class="spacer"></td>
+  <td colspan="3">
+    {% if r.findings %}<ul class="findings">{% for f in r.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+    {% if r.checked_by == "agent" and can_dismiss and not dismissal %}
+    <details class="inline-form">
+      <summary class="btn btn-sm">Dismiss finding</summary>
+      <form method="post" action="/cases/{{ case_id }}/dismiss" class="form-stack">
+        <input type="hidden" name="item_id" value="{{ r.item_id }}">
+        <label for="reason-{{ r.item_id }}">Reason <span class="hint">Required. Recorded in the audit log with your name.</span></label>
+        <textarea id="reason-{{ r.item_id }}" name="reason" rows="2" required></textarea>
+        <div class="form-actions"><button type="submit" class="btn btn-primary btn-sm">Dismiss with this reason</button></div>
+      </form>
+    </details>
+    {% endif %}
+  </td>
+</tr>
+{% endif %}
+{%- endmacro %}
+
+{% block content %}
+{% set st = record.status if record else "new" %}
+{% set is_supervisor = "Supervisor" in user.roles %}
+{% set is_caseworker = "Caseworker" in user.roles %}
+{% set report = record.report if record else none %}
+{% set case_url = "/cases/" ~ case.case_id %}
+
+<div class="page-header">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Cases</a> / <span class="mono">{{ case.case_id }}</span></nav>
+  <div class="title-row">
+    <div class="title">
+      <h1>{{ case.case_id }}</h1>
+      {{ status(st, large=true) }}
+    </div>
+    <div class="form-actions">
+      {% if is_supervisor and st == "in_review" and tab != "qa" %}<a class="btn btn-primary" href="{{ case_url }}?tab=qa#decision">Review and decide</a>{% endif %}
+      {% if is_caseworker %}{{ run_button(case.case_id, record is not none, primary=(st in ("new", "returned"))) }}{% endif %}
+    </div>
+  </div>
+  {% if case.summary %}<p class="description">{{ case.summary }}</p>{% endif %}
+  <dl class="facts">
+    <div><dt>Assessment</dt><dd>{{ case.assessment_type | replace("_", " ") | capitalize }}</dd></div>
+    <div><dt>Started</dt><dd>{{ case.start_date.strftime("%b") }} {{ case.start_date.day }}, {{ case.start_date.year }}</dd></div>
+    <div><dt>Last run by</dt><dd>{{ run_by or "Not run" }}</dd></div>
+    {% if record %}<div><dt>Updated</dt><dd>{{ record.updated_at | when }} UTC</dd></div>{% endif %}
+  </dl>
 </div>
 
-{% if record and record.draft %}
-  {% set report = record.report %}
-  <h2>QA report</h2>
-  <div class="card">
-    {% if record.can_approve %}<p class="ok"><strong>No open blocking items.</strong> A supervisor can approve.</p>
-    {% else %}<p class="bad"><strong>{{ record.open_blockers | length }} blocking item(s).</strong> Approval is blocked until they are fixed{% if "Supervisor" in user.roles %} or, for AI-judged items, dismissed with a reason{% endif %}.</p>{% endif %}
-    <div class="table-scroll"><table>
-      {% for r in report.results %}
-      <tr>
-        {% set dismissal = record.dismissals.get(r.item_id) %}
-        <td>{% if r.passed %}<span class="pill ok">pass</span>
-            {% elif dismissal %}<span class="pill warn">dismissed</span>
-            {% elif r.severity == "blocking" %}<span class="pill bad">fail</span>
-            {% else %}<span class="pill warn">warning</span>{% endif %}</td>
-        <td>{{ r.description }} <span class="muted">({{ "AI judged" if r.checked_by == "agent" else "rule" }})</span>
-          {% if r.findings %}<ul class="claims">{% for f in r.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
-          {% if dismissal %}<p class="muted">Dismissed by {{ dismissal.by }}: {{ dismissal.reason }}</p>
-          {% elif not r.passed and r.checked_by == "agent" and "Supervisor" in user.roles and record.status == "in_review" %}
-          <form method="post" action="/cases/{{ case.case_id }}/dismiss" class="actions">
-            <input type="hidden" name="item_id" value="{{ r.item_id }}">
-            <textarea name="reason" rows="1" placeholder="Why this finding does not apply (required)" required style="flex: 1; min-width: 200px;"></textarea>
-            <button type="submit" class="secondary">Dismiss</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </table></div>
-    {% if report.acknowledged_gaps %}
-    <p class="muted">Known gaps: {{ report.acknowledged_gaps | map(attribute="element") | map("replace", "_", " ") | join(", ") }}</p>
-    {% endif %}
-  </div>
-
-  {% if "Supervisor" in user.roles and record.status == "in_review" %}
-  <h2>Decision</h2>
-  <div class="card actions">
-    <form method="post" action="/cases/{{ case.case_id }}/approve">
-      <button type="submit" {% if not record.can_approve %}disabled title="Blocking QA items remain"{% endif %}>Approve</button>
-    </form>
-    <form method="post" action="/cases/{{ case.case_id }}/return" style="flex: 1; min-width: 240px;">
-      <textarea name="comment" rows="2" placeholder="What needs to change? (required)" required></textarea>
-      <button type="submit" class="secondary">Return for changes</button>
-    </form>
-  </div>
-  {% endif %}
-
-  <h2>Draft</h2>
-  {% for section in record.draft.sections %}
-  <div class="card">
-    <strong>{{ section.title }}</strong>
-    <ul class="claims">
-      {% for claim in section.claims %}
-      <li>{{ claim.text }}
-        <span class="cite">
-          {% if claim.citations %}[{% for c in claim.citations %}{{ c.doc_id }} p{{ c.page }}{% if not loop.last %}, {% endif %}{% endfor %}]
-          {% elif claim.is_gap_statement %}{% if claim.elements|length > 1 %}[information gap]{% else %}[no gaps found]{% endif %}{% else %}<span class="bad">[no citation]</span>{% endif %}
-        </span>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endfor %}
+{% if st == "returned" and last_returned %}
+<div class="alert alert-warning" style="margin-bottom: var(--sp-4)">
+  <span class="alert-title">Returned for changes</span>
+  <span>{{ last_returned.actor }} returned this draft on {{ last_returned.at | when }} UTC.{% if is_caseworker %} Address the comment, then re-run the assessment.{% endif %}</span>
+  <blockquote>{{ last_returned.details.comment }}</blockquote>
+</div>
+{% elif st == "approved" and last_approved %}
+<div class="alert alert-success" style="margin-bottom: var(--sp-4)">
+  <span class="alert-title">Approved</span>
+  <span>{{ last_approved.actor }} approved this assessment on {{ last_approved.at | when }} UTC.
+    {% if last_approved.details.dismissed_items %}AI findings dismissed before approval: {{ last_approved.details.dismissed_items | join(", ") }}.{% endif %}</span>
+</div>
 {% endif %}
 
-<h2>Audit log</h2>
-<div class="card table-scroll">
+<nav class="tabs" aria-label="Case sections">
+  <a href="{{ case_url }}" {% if tab == "draft" %}aria-current="page"{% endif %}>Draft</a>
+  <a href="{{ case_url }}?tab=qa" {% if tab == "qa" %}aria-current="page"{% endif %}>QA report
+    {% if record and record.open_blockers %}<span class="count count-danger" title="Open blocking items">{{ record.open_blockers | length }}</span>{% endif %}</a>
+  <a href="{{ case_url }}?tab=audit" {% if tab == "audit" %}aria-current="page"{% endif %}>Audit log <span class="count">{{ events | length }}</span></a>
+</nav>
+
+{# ---------------------------------------------------------------- Draft #}
+{% if tab == "draft" %}
+  {% if not record or not record.draft %}
+  <div class="empty">
+    <h2>No draft yet</h2>
+    <p>Running the assessment extracts cited facts from the case records, drafts each section, and runs the QA checklist. It takes about a minute.</p>
+    {% if is_caseworker %}<div class="form-actions">{{ run_button(case.case_id, false) }}</div>
+    {% else %}<p class="small" style="margin-top: var(--sp-2)">A caseworker has not run this assessment yet.</p>{% endif %}
+  </div>
+  {% else %}
+  {% set stats = namespace(total=0, cited=0, gaps=0, missing=0) %}
+  {% set cites = {} %}
+  {% for section in record.draft.sections %}{% for claim in section.claims %}
+    {% set stats.total = stats.total + 1 %}
+    {% if claim.citations %}{% set stats.cited = stats.cited + 1 %}
+    {% elif claim.is_gap_statement %}{% set stats.gaps = stats.gaps + 1 %}
+    {% else %}{% set stats.missing = stats.missing + 1 %}{% endif %}
+    {% for c in claim.citations %}{% set key = c.doc_id ~ "|" ~ c.page %}{% set _ = cites.update({key: cites.get(key, 0) + 1}) %}{% endfor %}
+  {% endfor %}{% endfor %}
+
+  <div class="workspace">
+    <article class="document" aria-label="Assessment draft">
+      <div class="doc-stats">
+        <span><b>{{ stats.total }}</b> statements</span>
+        <span><b>{{ stats.cited }}</b> cited</span>
+        <span><b>{{ stats.gaps }}</b> information gap{{ "s" if stats.gaps != 1 }}</span>
+        {% if stats.missing %}<span class="text-danger"><b>{{ stats.missing }}</b> without citation</span>{% endif %}
+      </div>
+      {% for section in record.draft.sections %}
+      <section class="doc-section">
+        <h3>{{ section.title }}</h3>
+        <ul class="statements">
+          {% for claim in section.claims %}
+          {% set selected = source and (claim.citations | selectattr("doc_id", "equalto", source.doc_id) | selectattr("page", "equalto", source.page) | list) %}
+          <li class="statement{% if claim.is_gap_statement %} is-gap{% endif %}{% if selected %} is-selected{% endif %}">
+            {{ claim.text }}
+            {% if claim.citations %}<span class="refs">{% for c in claim.citations %}<a class="ref" href="{{ case_url }}?doc={{ c.doc_id }}&amp;page={{ c.page }}#source" title="Open {{ c.doc_id | doc_label }}, page {{ c.page }} (chunk {{ c.chunk_id }})"{% if source and source.doc_id == c.doc_id and source.page == c.page %} aria-current="true"{% endif %}>{{ c.doc_id | doc_label }}, p.&nbsp;{{ c.page }}</a>{% endfor %}</span>
+            {% elif claim.is_gap_statement %}<span class="marker marker-gap">{{ "Information gap" if claim.elements | length > 1 else "No gaps found" }}</span>
+            {% else %}<span class="marker marker-missing">No citation</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+    </article>
+
+    <aside class="side" aria-label="Source evidence">
+      <div class="box" id="source">
+        {% if source %}
+        <div class="box-header">
+          <span>{{ source.doc_id | doc_label }}, page {{ source.page }} of {{ source.page_count }}</span>
+          <a class="small" href="{{ case_url }}" style="font-weight: 400">Close</a>
+        </div>
+        {% if source.page_count > 1 %}
+        <div class="box-body" style="display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2)">
+          <span class="secondary xs">Page</span>
+          <span class="page-links">{% for n in range(1, source.page_count + 1) %}<a href="{{ case_url }}?doc={{ source.doc_id }}&amp;page={{ n }}#source"{% if n == source.page %} aria-current="true"{% endif %}>{{ n }}</a>{% endfor %}</span>
+        </div>
+        {% endif %}
+        <div class="source-page" tabindex="0" aria-label="Page text">
+          {% for b in source.blocks %}
+            {% if b.kind == "title" %}<p class="doc-title">{{ b.text }}</p>
+            {% elif b.kind == "heading" %}<h4>{{ b.text }}</h4>
+            {% elif loop.index0 == 1 and source.page == 1 %}<p class="meta">{{ b.text }}</p>
+            {% else %}<p>{{ b.text }}</p>{% endif %}
+          {% endfor %}
+        </div>
+        <div class="box-footer">{% set n = cites.get(source.doc_id ~ "|" ~ source.page, 0) %}{{ n }} statement{{ "s" if n != 1 }} in this draft cite{{ "s" if n == 1 }} this page (highlighted). Text is the synthetic source the PDF was rendered from.</div>
+        {% else %}
+        <div class="box-header"><span>Source documents</span></div>
+        <div class="box-body">
+          <p class="secondary" style="margin-bottom: var(--sp-2)">Select a citation in the draft, or a page below, to read the cited text.</p>
+          <ul class="source-list">
+            {% for d in source_docs %}
+            <li>
+              <span>{{ d | doc_label }}</span>
+              <span class="page-links">
+                {% for key, n in cites | dictsort if key.split("|")[0] == d %}
+                {% set p = key.split("|")[1] %}<a href="{{ case_url }}?doc={{ d }}&amp;page={{ p }}#source" title="{{ n }} citation{{ 's' if n != 1 }}">p. {{ p }} <span class="n">{{ n }}</span></a>
+                {% else %}<a href="{{ case_url }}?doc={{ d }}&amp;page=1#source">p. 1 <span class="n">0</span></a>{% endfor %}
+              </span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="box-footer">Numbers show how many statements cite each page.</div>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+  {% endif %}
+
+{# ---------------------------------------------------------------- QA report #}
+{% elif tab == "qa" %}
+  {% if not report %}
+  <div class="empty">
+    <h2>No QA report yet</h2>
+    <p>QA runs automatically after the draft is generated.</p>
+    {% if is_caseworker %}<div class="form-actions">{{ run_button(case.case_id, false) }}</div>{% endif %}
+  </div>
+  {% else %}
+  {% set rules = report.results | selectattr("checked_by", "equalto", "rule") | sort(attribute="passed") | list %}
+  {% set agent = report.results | selectattr("checked_by", "equalto", "agent") | sort(attribute="passed") | list %}
+  {% set rule_blockers = record.open_blockers | selectattr("checked_by", "equalto", "rule") | list %}
+  {% set agent_blockers = record.open_blockers | selectattr("checked_by", "equalto", "agent") | list %}
+  {% set can_dismiss = is_supervisor and st == "in_review" %}
+
+  <div class="workspace narrow-side">
+    <div>
+      <div class="gate">
+        {% if record.open_blockers %}
+        <div class="alert alert-danger">
+          <span class="alert-title">Approval blocked by {{ record.open_blockers | length }} item{{ "s" if record.open_blockers | length != 1 }}</span>
+          <span>
+            {% if rule_blockers %}{{ rule_blockers | length }} rule failure{{ "s" if rule_blockers | length != 1 }} must be fixed in the draft and re-run.{% endif %}
+            {% if agent_blockers %}{{ agent_blockers | length }} AI finding{{ "s" if agent_blockers | length != 1 }} can be fixed, or dismissed by a supervisor with a documented reason.{% endif %}
+          </span>
+        </div>
+        {% else %}
+        <div class="alert alert-success">
+          <span class="alert-title">No open blocking items</span>
+          <span>{% if st == "in_review" %}A supervisor can approve this draft.{% elif st == "approved" %}This draft was approved.{% else %}All blocking checks passed or were dismissed.{% endif %}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="section-head">
+        <h2>Rule checks</h2>
+        <p>Deterministic checks in code. Failures cannot be dismissed.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="qa-table">
+          <colgroup><col class="c-result"><col><col class="c-sev"><col class="c-res"></colgroup>
+          <thead><tr><th scope="col">Result</th><th scope="col">Check</th><th scope="col">Severity</th><th scope="col">Resolution</th></tr></thead>
+          <tbody>{% for r in rules %}{{ qa_row(r, record, case.case_id, can_dismiss) }}{% endfor %}</tbody>
+        </table>
+      </div>
+
+      <div class="section-head">
+        <h2>AI reviewer findings</h2>
+        <p>Judged by the QA agent. Dismissing requires a reason.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="qa-table">
+          <colgroup><col class="c-result"><col><col class="c-sev"><col class="c-res"></colgroup>
+          <thead><tr><th scope="col">Result</th><th scope="col">Check</th><th scope="col">Severity</th><th scope="col">Resolution</th></tr></thead>
+          <tbody>{% for r in agent %}{{ qa_row(r, record, case.case_id, can_dismiss) }}{% endfor %}</tbody>
+        </table>
+      </div>
+
+      <p class="gaps">Checklist version {{ report.checklist_version }}.
+        {% if report.acknowledged_gaps %}Information gaps stated in the draft (do not block): {{ report.acknowledged_gaps | map(attribute="element") | map("replace", "_", " ") | join(", ") }}.{% endif %}</p>
+    </div>
+
+    <aside class="side">
+      <div class="box" id="decision">
+        <div class="box-header"><span>Supervisor decision</span>{{ status(st) }}</div>
+        {% if st == "in_review" and is_supervisor %}
+        <div class="box-body">
+          {% if record.can_approve %}
+            <p>All blocking items are resolved.{% if record.dismissals %} {{ record.dismissals | length }} AI finding{{ "s" if record.dismissals | length != 1 }} dismissed.{% endif %}</p>
+          {% else %}
+            <p>Approve is unavailable until these are resolved:</p>
+            <ul class="checklist">{% for r in record.open_blockers %}<li>{{ r.description }} <span class="type-label">({{ "rule" if r.checked_by == "rule" else "AI" }})</span></li>{% endfor %}</ul>
+          {% endif %}
+          <form method="post" action="/cases/{{ case.case_id }}/approve" style="margin-top: var(--sp-3)">
+            <button type="submit" class="btn btn-success" {% if not record.can_approve %}disabled aria-describedby="approve-help"{% endif %}>Approve assessment</button>
+            {% if not record.can_approve %}<span id="approve-help" class="visually-hidden">Blocking QA items remain</span>{% endif %}
+          </form>
+        </div>
+        <div class="box-body">
+          <form method="post" action="/cases/{{ case.case_id }}/return" class="form-stack">
+            <label for="return-comment">Return for changes <span class="hint">Comment for the caseworker. Required.</span></label>
+            <textarea id="return-comment" name="comment" rows="3" required></textarea>
+            <div class="form-actions"><button type="submit" class="btn">Return to caseworker</button></div>
+          </form>
+        </div>
+        {% elif st == "in_review" %}
+        <div class="box-body"><p class="secondary">Waiting for a supervisor to approve or return this draft.</p></div>
+        {% elif st == "approved" and last_approved %}
+        <div class="box-body"><p>Approved by {{ last_approved.actor }}</p><p class="secondary xs">{{ last_approved.at | when }} UTC</p></div>
+        {% elif st == "returned" and last_returned %}
+        <div class="box-body"><p>Returned by {{ last_returned.actor }}</p><p class="secondary xs">{{ last_returned.at | when }} UTC</p></div>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+  {% endif %}
+
+{# ---------------------------------------------------------------- Audit log #}
+{% else %}
+  <div class="section-head">
+    <h2>Audit log</h2>
+    <p>Append-only. Oldest first. Times in UTC.</p>
+  </div>
   {% if events %}
-  <table>
-    <tr><th>When (UTC)</th><th>Who</th><th>What</th><th>Details</th></tr>
-    {% for e in events %}
-    <tr>
-      <td class="muted">{{ e.at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
-      <td>{{ e.actor }}</td>
-      <td>{{ e.action | replace("_", " ") }}</td>
-      <td class="muted">{% for k, v in e.details.items() %}{{ k | replace("_", " ") }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}<p class="muted">No events yet.</p>{% endif %}
-</div>
+  <div class="table-wrap">
+    <table class="audit-table">
+      <thead><tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Actor</th><th scope="col">Details</th></tr></thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td class="time">{{ e.at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+          <td class="nowrap">{{ ACTION_LABELS.get(e.action, e.action | replace("_", " ") | capitalize) }}</td>
+          <td class="nowrap">{{ e.actor }}{% if e.actor in AGENT_ACTORS %}<div class="actor-kind">Automated agent</div>{% endif %}</td>
+          <td>
+            {% if e.details %}
+            <dl class="kv">
+              {% for k, v in e.details.items() %}
+              <dt>{{ k | replace("_", " ") | capitalize }}</dt>
+              <dd>{% if v is string %}{{ v }}{% elif v is sameas true %}Yes{% elif v is sameas false %}No{% elif v is mapping %}{{ v | tojson }}{% elif v is iterable %}{{ v | join("\n") if v else "None" }}{% else %}{{ v }}{% endif %}</dd>
+              {% endfor %}
+            </dl>
+            {% else %}<span class="secondary">None</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><h2>No events yet</h2><p>Runs, QA results and decisions for this case will appear here.</p></div>
+  {% endif %}
+{% endif %}
 {% endblock %}

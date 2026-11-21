@@ -7,18 +7,19 @@ flowchart LR
     CW[Caseworker] --> UI
     SV[Supervisor] --> UI
     subgraph ACA[Azure Container Apps: FastAPI + UI]
-        UI[Web UI and API] --> ING[1. Ingest and index]
-        ING --> EXT[2. Extract facts]
-        EXT --> DRA[3. Drafting agent call]
-        DRA --> QA[4. QA agent call]
-        QA --> REV[5. Human review and approval]
+        UI[Web UI and API] --> ING[Step 1: Ingest and index]
+        ING --> EXT[Step 2: Extract facts]
+        EXT --> DRA[Step 3: Drafting agent call]
+        DRA --> QA[Step 4: QA agent call]
+        QA --> REV[Step 5: Human review and approval]
         RULES[[rules: deterministic tools]]
     end
     ING --> BLOB[(Blob Storage)]
     ING --> DI[Document Intelligence]
     ING --> SRCH[(AI Search: one index, case filter)]
-    EXT --> APIM[APIM AI gateway]
-    APIM --> FDY[Foundry: agents and models]
+    EXT --> FDY[Foundry: agents and models]
+    EXT -.-> APIM[APIM AI gateway, optional]
+    APIM -.-> FDY
     DRA --> FDY
     QA --> FDY
     FDY -. function calls .-> RULES
@@ -28,7 +29,7 @@ flowchart LR
     GH[GitHub Actions: OIDC, eval gate] -. azd deploy .-> ACA
 ```
 
-Only steps 3 and 4 are agents. Ingestion, extraction orchestration, rules and approval are deterministic code or a human step. All service calls use a managed identity.
+Only steps 3 and 4 are agents. Ingestion, extraction orchestration, rules and approval are deterministic code or a human step. All service calls use a managed identity. API Management is optional (dashed): it is off by default to save cost, and `DEPLOY_APIM=true` puts it in front of direct model calls (extraction and embeddings).
 
 ## Request flow: generate and review a draft
 
@@ -51,7 +52,7 @@ sequenceDiagram
     Search-->>App: chunks with page numbers
     App-->>Draft: tool result
     Draft-->>App: Draft with cited claims
-    App->>Audit: draft_generated (agent version, model)
+    App->>Audit: drafted (facts, dropped citations)
     App->>Rules: rule checks (sections, elements, citations, deadline, determinations)
     App->>QA: Judge the agent items on the checklist
     QA->>App: function call: get_chunks (cited text)
