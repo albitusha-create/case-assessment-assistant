@@ -18,6 +18,10 @@ Caseworkers spend hours reviewing large case files, writing assessment narrative
 4. **QA:** rule checks run in code (sections, required elements, citations, deadline, no determinations). The QA agent judges what code cannot (claims supported by their sources, conflicts named, safety concerns carried, person-first language, strengths). Severity comes from the checklist, never from the model, and an item the agent does not report fails.
 5. **Human review:** a caseworker runs the case; a supervisor approves or returns it with a comment. A supervisor may dismiss an AI-judged finding with a written reason. Rule failures cannot be dismissed. Every step lands in an append-only audit log.
 
+## Fits into the system workers already use
+
+Workers finish the assessment in their agency's case management system, not here. The assistant reads the case from that system, and after a supervisor approves, saves a pre-filled draft of the agency's form back into it, with a source under each section. The worker reviews, edits and submits there. Clinical sections stay with the clinician, and sections the records do not cover become topics to ask about in the interview. The repo includes a mock agency portal at `/portal` (synthetic data, a generic form) to show this end to end, over a REST API and as MCP tools. See [ADR 0006](docs/adr/0006-integrate-with-the-system-of-record.md) and the [integration diagram](docs/architecture.md#integration-the-agencys-system-of-record).
+
 ## Screenshots
 
 Synthetic case-003. Each draft statement links to the cited page of its source document; the QA report separates rule checks (cannot be dismissed) from AI reviewer findings (a supervisor may dismiss one with a documented reason).
@@ -115,6 +119,16 @@ uv run python -m caa.agents publish         # create or update both agents in Fo
 uv run python -m caa.agents draft case-002  # extract, then draft with citations
 uv run python -m caa.agents review case-002 # extract, draft, then QA gap report
 ```
+
+### Agency portal (mock) and MCP tools
+
+With the app running locally:
+
+- Open http://127.0.0.1:8000/portal for the worker's view of the agency system.
+- The portal API is at `/portal/api/v1` (schema at `/portal/api/v1/forms/core-assessment/schema`). With no `PORTAL_API_KEY` set locally, it needs no key.
+- Connect an MCP client to the tools: `http://127.0.0.1:8000/mcp` (Streamable HTTP; any MCP client that supports it, for example as a server named `agency-portal`)
+
+Demo flow: in the portal, open a case and show the empty form. In the assistant, run the case and approve it. Back in the portal, the form is a pre-filled draft with sources; edit a section, tick the attestation and submit. The assistant's audit log then shows the submit and how many pre-filled sections the worker changed.
 
 ## Production next steps
 

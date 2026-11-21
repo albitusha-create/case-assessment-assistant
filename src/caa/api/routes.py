@@ -107,6 +107,19 @@ def back_to_case(case_id: str, tab: Tab = "draft") -> RedirectResponse:
     return RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER)
 
 
+PORTAL_ACTIONS = {
+    "portal_draft_pushed",
+    "portal_push_rejected",
+    "portal_push_failed",
+    "submitted_in_portal",
+}
+
+
+def last_portal_event(events: list[AuditEvent]) -> AuditEvent | None:
+    """The latest send to, or submit in, the agency portal: what the case page shows."""
+    return next((e for e in reversed(events) if e.action in PORTAL_ACTIONS), None)
+
+
 def last_event(events: list[AuditEvent], action: str | None = None) -> AuditEvent | None:
     matching = [e for e in events if action is None or e.action == action]
     return matching[-1] if matching else None
@@ -173,6 +186,7 @@ def case_page(
         "source_docs": list_source_docs(case.case_id),
         "run_by": run.actor if run else None,
         "last_approved": last_event(events, "approved"),
+        "portal_event": last_portal_event(events),
         "last_returned": last_event(events, "returned"),
     }
     return TEMPLATES.TemplateResponse(request, "case.html", context)
