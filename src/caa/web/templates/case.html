@@ -44,6 +44,15 @@
 {% endif %}
 {%- endmacro %}
 
+{% macro portal_label(e) -%}
+{%- if not e %}Not sent
+{%- elif e.action == "portal_draft_pushed" %}Pre-filled draft saved, waiting for the worker
+{%- elif e.action == "submitted_in_portal" %}Submitted by {{ e.details.submitted_by }} ({{ e.details.changed_by_worker }} of {{ e.details.prefilled_domains }} pre-filled sections changed)
+{%- elif e.action == "portal_push_rejected" %}Not sent: the portal refused it
+{%- else %}Not sent: the portal could not be reached
+{%- endif %}
+{%- endmacro %}
+
 {% block content %}
 {% set st = record.status if record else "new" %}
 {% set is_supervisor = "Supervisor" in user.roles %}
@@ -69,6 +78,7 @@
     <div><dt>Started</dt><dd>{{ case.start_date.strftime("%b") }} {{ case.start_date.day }}, {{ case.start_date.year }}</dd></div>
     <div><dt>Last run by</dt><dd>{{ run_by or "Not run" }}</dd></div>
     {% if record %}<div><dt>Updated</dt><dd>{{ record.updated_at | when }} UTC</dd></div>{% endif %}
+    <div><dt>Agency portal</dt><dd>{{ portal_label(portal_event) }} <a href="/portal/cases/{{ case.case_id }}/assessment">Open form</a></dd></div>
   </dl>
 </div>
 
@@ -274,6 +284,16 @@
         <div class="box-body"><p class="secondary">Waiting for a supervisor to approve or return this draft.</p></div>
         {% elif st == "approved" and last_approved %}
         <div class="box-body"><p>Approved by {{ last_approved.actor }}</p><p class="secondary xs">{{ last_approved.at | when }} UTC</p></div>
+        <div class="box-body" id="portal">
+          <p><strong>Agency portal:</strong> {{ portal_label(portal_event) }}</p>
+          {% if portal_event and portal_event.action == "portal_draft_pushed" %}
+          <p class="secondary xs">The worker reviews, edits and submits the form in the portal.</p>
+          {% elif portal_event and portal_event.action in ("portal_push_rejected", "portal_push_failed") %}
+          <p class="secondary xs">{{ portal_event.details.reason or portal_event.details.error }}</p>
+          {% if is_supervisor %}<form method="post" action="/cases/{{ case.case_id }}/portal/push" style="margin-top: var(--sp-2)"><button type="submit" class="btn btn-sm">Send to portal again</button></form>{% endif %}
+          {% endif %}
+          <p style="margin-top: var(--sp-2)"><a href="/portal/cases/{{ case.case_id }}/assessment">Open the form in the portal</a></p>
+        </div>
         {% elif st == "returned" and last_returned %}
         <div class="box-body"><p>Returned by {{ last_returned.actor }}</p><p class="secondary xs">{{ last_returned.at | when }} UTC</p></div>
         {% endif %}
