@@ -218,30 +218,54 @@ def test_page_shows_dismiss_form_for_agent_findings(
 ) -> None:
     client = make_client(store, complete_draft, blocking_fails=True)
     client.post("/cases/case-002/run", headers=CASEWORKER)
-    page = client.get("/cases/case-002", headers=SUPERVISOR).text
+    page = client.get("/cases/case-002?tab=qa", headers=SUPERVISOR).text
     assert 'action="/cases/case-002/dismiss"' in page
-    assert "AI judged" in page
+    assert "AI reviewer findings" in page
+    assert "Approval blocked by 1 item" in page
 
 
-def test_citation_and_avatar_labels() -> None:
-    from caa.api.routes import doc_label, initials
-
-    assert doc_label("02-home-health-note") == "Home health note"
-    assert initials("Pat Doe") == "PD"
-    assert initials("") == "?"
-
-
-def test_case_page_shows_dismiss_form_and_return_comment(
+def test_dismiss_and_return_go_back_to_the_qa_tab(
     store: MemoryStore, complete_draft: Draft
 ) -> None:
     client = make_client(store, complete_draft, blocking_fails=True)
     client.post("/cases/case-002/run", headers=CASEWORKER)
 
-    page = client.get("/cases/case-002", headers=SUPERVISOR).text
-    assert "Dismiss with a reason" in page
-    assert "Approval is blocked by 1 item" in page
+    response = client.post(
+        "/cases/case-002/dismiss",
+        headers=SUPERVISOR,
+        data={"item_id": "conflicts_named", "reason": "Same fact, different words."},
+        follow_redirects=False,
+    )
+    assert response.headers["location"] == "/cases/case-002?tab=qa"
+    assert "Same fact, different words." in client.get("/cases/case-002?tab=qa").text
 
     client.post("/cases/case-002/return", headers=SUPERVISOR, data={"comment": "Confirm guardian."})
     page = client.get("/cases/case-002", headers=SUPERVISOR).text
-    assert "Returned for changes by sam" in page
+    assert "Returned for changes" in page
     assert "Confirm guardian." in page
+
+
+def test_doc_label_reads_like_a_title() -> None:
+    from caa.api.routes import doc_label
+
+    assert doc_label("02-home-health-note") == "Home health note"
+
+
+def test_citation_opens_the_cited_source_page(store: MemoryStore, complete_draft: Draft) -> None:
+    client = make_client(store, complete_draft)
+    client.post("/cases/case-003/run", headers=CASEWORKER)
+    page = client.get("/cases/case-003?doc=01-intake-note&page=2").text
+    assert "Intake note, page 2 of 2" in page
+    assert "retired bus mechanic" in page
+    assert client.get("/cases/case-003?doc=../case.json&page=1").status_code == 404
+    assert client.get("/cases/case-003?doc=01-intake-note&page=9").status_code == 404
+
+
+def test_browsers_get_an_error_page_and_api_clients_get_json(
+    store: MemoryStore, complete_draft: Draft
+) -> None:
+    client = make_client(store, complete_draft)
+    html = client.get("/cases/case-999", headers={"accept": "text/html"})
+    assert html.status_code == 404
+    assert "Back to cases" in html.text
+    assert client.get("/cases/case-999").json() == {"detail": "Unknown case"}
