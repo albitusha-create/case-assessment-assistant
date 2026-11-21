@@ -20,13 +20,15 @@ Caseworkers spend hours reviewing large case files, writing assessment narrative
 
 ## Screenshots
 
-Synthetic case-003 after a supervisor dismissed an AI-judged finding (with a reason) and returned the draft for changes. Every statement cites its source document and page; gaps are stated, not filled.
+Synthetic case-003. Each draft statement links to the cited page of its source document; the QA report separates rule checks (cannot be dismissed) from AI reviewer findings (a supervisor may dismiss one with a documented reason).
 
-| Case list | QA report with dismiss form |
+| Case list | Draft with the cited source page |
 | --- | --- |
-| ![Case list](docs/screenshots/cases.png) | ![QA report](docs/screenshots/qa-dismiss.png) |
+| ![Case list](docs/screenshots/cases.png) | ![Draft and source](docs/screenshots/draft-source.png) |
 
-Full case page: [returned for changes](docs/screenshots/case-returned.png).
+| QA report with dismiss form | Returned for changes |
+| --- | --- |
+| ![QA report](docs/screenshots/qa-dismiss.png) | ![Returned](docs/screenshots/case-returned.png) |
 
 ## Design principle: deterministic rules, LLM judgment
 

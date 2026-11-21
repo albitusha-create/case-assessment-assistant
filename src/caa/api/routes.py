@@ -4,13 +4,17 @@ Pages use plain HTML forms that post and redirect back to the case page, so
 there is no front-end framework to explain.
 """
 
+from datetime import datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from caa.agents.definitions import DRAFTING_AGENT, QA_AGENT
 from caa.api.auth import CASEWORKER, SUPERVISOR, User, current_user, require_role
 from caa.api.workflow import (
     CaseRunner,
@@ -20,11 +24,29 @@ from caa.api.workflow import (
     return_for_changes,
     run_and_record,
 )
-from caa.storage.store import Store
-from caa.synthetic import SyntheticCase, list_case_ids, load_case
+from caa.storage.store import AuditEvent, Store
+from caa.synthetic import (
+    SyntheticCase,
+    list_case_ids,
+    list_source_docs,
+    load_case,
+    load_source_page,
+)
 
 TEMPLATES = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "web" / "templates")
 router = APIRouter()
+
+Tab = Literal["draft", "qa", "audit"]
+
+# Audit actions as people read them. Unknown actions fall back to the raw name.
+ACTION_LABELS = {
+    "run_started": "Assessment run started",
+    "drafted": "Draft generated",
+    "qa_completed": "QA checks completed",
+    "finding_dismissed": "AI finding dismissed",
+    "approved": "Assessment approved",
+    "returned": "Returned for changes",
+}
 
 
 def doc_label(doc_id: str) -> str:
@@ -33,13 +55,15 @@ def doc_label(doc_id: str) -> str:
     return " ".join(words).capitalize() or doc_id
 
 
-def initials(name: str) -> str:
-    """Up to two initials for the header avatar, e.g. "Pat Doe" -> "PD"."""
-    return "".join(part[0] for part in name.split()[:2]).upper() or "?"
+def when(value: datetime) -> str:
+    """Dates in tables and notices, always UTC: "Nov 21, 2026 01:12"."""
+    return f"{value:%b} {value.day}, {value:%Y %H:%M}"
 
 
 TEMPLATES.env.filters["doc_label"] = doc_label
-TEMPLATES.env.filters["initials"] = initials
+TEMPLATES.env.filters["when"] = when
+TEMPLATES.env.globals["ACTION_LABELS"] = ACTION_LABELS
+TEMPLATES.env.globals["AGENT_ACTORS"] = {DRAFTING_AGENT, QA_AGENT}
 
 
 def get_store(request: Request) -> Store:
@@ -62,28 +86,79 @@ StoreDep = Annotated[Store, Depends(get_store)]
 CaseDep = Annotated[SyntheticCase, Depends(known_case)]
 
 
-def back_to_case(case_id: str) -> RedirectResponse:
+def back_to_case(case_id: str, tab: Tab = "draft") -> RedirectResponse:
     # 303 turns the browser's POST into a GET of the case page.
-    return RedirectResponse(f"/cases/{case_id}", status_code=status.HTTP_303_SEE_OTHER)
+    url = f"/cases/{case_id}" if tab == "draft" else f"/cases/{case_id}?tab={tab}"
+    return RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER)
+
+
+def last_event(events: list[AuditEvent], action: str | None = None) -> AuditEvent | None:
+    matching = [e for e in events if action is None or e.action == action]
+    return matching[-1] if matching else None
+
+
+async def html_or_json_error(request: Request, exc: Exception) -> Response:
+    """Browsers get a readable error page; API clients keep FastAPI's JSON body."""
+    if not isinstance(exc, StarletteHTTPException):  # registered only for this type
+        raise exc
+    if "text/html" not in request.headers.get("accept", ""):
+        return await http_exception_handler(request, exc)
+    return TEMPLATES.TemplateResponse(
+        request,
+        "error.html",
+        {"status_code": exc.status_code, "detail": exc.detail, "user": None},
+        status_code=exc.status_code,
+        headers=getattr(exc, "headers", None),
+    )
 
 
 @router.get("/", response_class=HTMLResponse)
 def index(
     request: Request, store: StoreDep, user: Annotated[User, Depends(current_user)]
 ) -> HTMLResponse:
-    cases = [(load_case(case_id), store.get_case(case_id)) for case_id in list_case_ids()]
-    return TEMPLATES.TemplateResponse(request, "index.html", {"cases": cases, "user": user})
+    rows = []
+    for case_id in list_case_ids():
+        events = store.list_events(case_id)
+        run = last_event(events, "run_started")
+        rows.append(
+            {
+                "case": load_case(case_id),
+                "record": store.get_case(case_id),
+                "last_event": last_event(events),
+                "run_by": run.actor if run else None,
+            }
+        )
+    return TEMPLATES.TemplateResponse(request, "index.html", {"rows": rows, "user": user})
 
 
 @router.get("/cases/{case_id}", response_class=HTMLResponse)
 def case_page(
-    request: Request, case: CaseDep, store: StoreDep, user: Annotated[User, Depends(current_user)]
+    request: Request,
+    case: CaseDep,
+    store: StoreDep,
+    user: Annotated[User, Depends(current_user)],
+    tab: Tab = "draft",
+    doc: str | None = None,
+    page: int = 1,
 ) -> HTMLResponse:
+    source = None
+    if doc is not None:
+        source = load_source_page(case.case_id, doc, page)
+        if source is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown source document or page")
+    events = store.list_events(case.case_id)
+    run = last_event(events, "run_started")
     context = {
         "case": case,
         "record": store.get_case(case.case_id),
-        "events": store.list_events(case.case_id),
+        "events": events,
         "user": user,
+        "tab": tab,
+        "source": source,
+        "source_docs": list_source_docs(case.case_id),
+        "run_by": run.actor if run else None,
+        "last_approved": last_event(events, "approved"),
+        "last_returned": last_event(events, "returned"),
     }
     return TEMPLATES.TemplateResponse(request, "case.html", context)
 
@@ -110,7 +185,7 @@ def approve_draft(
         approve(store, case.case_id, user)
     except WorkflowError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-    return back_to_case(case.case_id)
+    return back_to_case(case.case_id, "qa")
 
 
 @router.post("/cases/{case_id}/dismiss")
@@ -125,7 +200,7 @@ def dismiss(
         dismiss_finding(store, case.case_id, user, item_id, reason)
     except WorkflowError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-    return back_to_case(case.case_id)
+    return back_to_case(case.case_id, "qa")
 
 
 @router.post("/cases/{case_id}/return")
@@ -139,7 +214,7 @@ def return_draft(
         return_for_changes(store, case.case_id, user, comment)
     except WorkflowError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-    return back_to_case(case.case_id)
+    return back_to_case(case.case_id, "qa")
 
 
 @router.get("/api/cases/{case_id}")
