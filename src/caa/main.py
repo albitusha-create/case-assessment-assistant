@@ -6,6 +6,8 @@ and builds the Azure clients the first time a case is run.
 """
 
 import secrets
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 
@@ -21,6 +23,7 @@ from caa.api.routes import html_or_json_error, router
 from caa.api.workflow import CaseRunner
 from caa.config import get_settings
 from caa.integrations import portal_webhook
+from caa.mcp_tools.server import build_mcp_server
 from caa.portal import api as portal_api
 from caa.portal import pages as portal_pages
 from caa.portal.store import PortalStore
@@ -55,7 +58,13 @@ def create_app(
     portal: PortalStore | None = None,
 ) -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, version=__version__)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        async with mcp_server.session_manager.run():
+            yield
+
+    app = FastAPI(title=settings.app_name, version=__version__, lifespan=lifespan)
     app.state.store = store or default_store()
     app.state.runner = runner or default_runner()
     # The mock agency portal runs in the same container but keeps its own state.
@@ -81,4 +90,8 @@ def create_app(
     app.include_router(portal_api.router)
     app.include_router(portal_pages.router)
     app.include_router(portal_webhook.router)
+    # MCP tools at /mcp: same portal client and approval gate, for agents.
+    mcp_server = build_mcp_server(app)
+    mcp_app = mcp_server.streamable_http_app(stateless_http=True, json_response=True)
+    app.router.routes.extend(mcp_app.routes)
     return app

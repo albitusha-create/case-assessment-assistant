@@ -39,7 +39,9 @@ class PortalClient:
         headers: dict[str, str] | None = None,
         json: dict[str, object] | None = None,
     ) -> httpx.Response:
-        all_headers = {"Authorization": f"Bearer {self.api_key}", **(headers or {})}
+        all_headers = dict(headers or {})
+        if self.api_key:  # a local run with no key configured sends none
+            all_headers["Authorization"] = f"Bearer {self.api_key}"
         try:
             response = self.http.request(method, API + path, headers=all_headers, json=json)
         except httpx.HTTPError as exc:
