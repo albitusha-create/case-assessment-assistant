@@ -1,0 +1,20 @@
+{% extends "portal_base.html" %}
+{% block title %}Case {{ case.case_number }}{% endblock %}
+{% block content %}
+<h1>Case {{ case.case_number }}: {{ case.client_name }}</h1>
+<table class="grid">
+  <tr><th>Client</th><td>{{ case.client_name }}</td><th>Age</th><td>{{ case.age }}</td></tr>
+  <tr><th>Pronouns</th><td>{{ case.pronouns }}</td><th>Program</th><td>{{ case.program }}</td></tr>
+  <tr><th>Program start</th><td>{{ case.program_start.strftime("%m/%d/%Y") }}</td><th>Assigned worker</th><td>{{ case.assigned_worker }}</td></tr>
+  <tr><th>Assessment due</th><td>{{ case.assessment_due.strftime("%m/%d/%Y") }}</td><th>Core assessment</th><td class="status"><a href="/portal/cases/{{ case.case_id }}/assessment">{{ form.status.replace("_", " ").title() }}</a></td></tr>
+</table>
+<fieldset>
+  <legend>Attached Documents</legend>
+  <table class="grid">
+    <tr><th>Document</th><th>Received</th><th>Doc ID</th></tr>
+    {% for doc in case.documents %}
+    <tr><td><a href="/portal/cases/{{ case.case_id }}/documents/{{ doc.doc_id }}">{{ doc.title }}</a></td><td>{{ doc.received.strftime("%m/%d/%Y") }}</td><td>{{ doc.doc_id }}</td></tr>
+    {% endfor %}
+  </table>
+</fieldset>
+{% endblock %}

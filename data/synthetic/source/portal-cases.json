@@ -1,0 +1,58 @@
+{
+  "_note": "Fictional case records for the mock agency portal. Every name is invented.",
+  "cases": [
+    {
+      "case_id": "case-001",
+      "case_number": "2026-AB-10481",
+      "client_name": "Dana Morrow",
+      "age": 34,
+      "pronouns": "she/her",
+      "program": "Adult Behavioral Health Services",
+      "assigned_worker": "R. Alvarez",
+      "documents": [
+        {"doc_id": "01-intake-note", "title": "Intake Note", "received": "2026-10-05"},
+        {"doc_id": "02-referral-letter", "title": "Primary Care Referral Letter", "received": "2026-09-28"},
+        {"doc_id": "03-prior-assessment", "title": "Prior Assessment Summary", "received": "2026-10-01"}
+      ]
+    },
+    {
+      "case_id": "case-002",
+      "case_number": "2026-YF-20317",
+      "client_name": "Jordan Ellis",
+      "age": 15,
+      "pronouns": "he/him",
+      "program": "Youth and Family Services",
+      "assigned_worker": "R. Alvarez",
+      "documents": [
+        {"doc_id": "01-intake-note", "title": "Intake Note", "received": "2026-10-12"},
+        {"doc_id": "02-school-record", "title": "School Counselor Summary", "received": "2026-10-09"}
+      ]
+    },
+    {
+      "case_id": "case-003",
+      "case_number": "2026-AA-30922",
+      "client_name": "Walter Okafor",
+      "age": 71,
+      "pronouns": "he/him",
+      "program": "Adult and Aging Services",
+      "assigned_worker": "T. Nguyen",
+      "documents": [
+        {"doc_id": "01-intake-note", "title": "Intake Note", "received": "2026-10-20"},
+        {"doc_id": "02-home-health-note", "title": "Home Health Visit Note", "received": "2026-10-16"}
+      ]
+    },
+    {
+      "case_id": "case-004",
+      "case_number": "2026-FS-41150",
+      "client_name": "Alicia Moreno",
+      "age": 28,
+      "pronouns": "she/her",
+      "program": "Family Support Services",
+      "assigned_worker": "T. Nguyen",
+      "documents": [
+        {"doc_id": "01-reassessment-request", "title": "Reassessment Request", "received": "2026-11-02"},
+        {"doc_id": "02-treatment-progress-note", "title": "Outpatient Treatment Progress Note", "received": "2026-10-28"}
+      ]
+    }
+  ]
+}
