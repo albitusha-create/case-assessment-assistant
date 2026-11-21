@@ -6,13 +6,16 @@ and builds the Azure clients the first time a case is run.
 """
 
 from datetime import date
+from pathlib import Path
 
 from azure.identity import DefaultAzureCredential
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from caa import __version__
 from caa.agents.pipeline import CaseRun, Services, run_case, services_from_settings
-from caa.api.routes import router
+from caa.api.routes import html_or_json_error, router
 from caa.api.workflow import CaseRunner
 from caa.config import get_settings
 from caa.portal import api as portal_api
@@ -59,6 +62,9 @@ def create_app(
         """Liveness probe used by Container Apps."""
         return {"status": "ok", "version": __version__}
 
+    app.add_exception_handler(StarletteHTTPException, html_or_json_error)
+    static_dir = Path(__file__).resolve().parent / "web" / "static"
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
     app.include_router(router)
     app.include_router(portal_api.router)
     app.include_router(portal_pages.router)

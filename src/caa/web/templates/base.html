@@ -3,50 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Case Assessment Assistant{% endblock %}</title>
-  <style>
-    :root { --bg: #f7f7f5; --card: #ffffff; --text: #1d1d1b; --muted: #66665f; --line: #e2e2dc;
-            --accent: #1f5f99; --ok: #2e7d32; --warn: #a15c00; --bad: #b3261e; }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg: #171716; --card: #21211f; --text: #ececea; --muted: #a3a39c; --line: #34342f;
-              --accent: #7ab3e6; --ok: #7cc47f; --warn: #e0a54f; --bad: #f08a80; }
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text);
-           font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-    header { border-bottom: 1px solid var(--line); background: var(--card); }
-    header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-    .wrap { max-width: 960px; margin: 0 auto; padding: 12px 16px; }
-    a { color: var(--accent); }
-    h1 { font-size: 22px; margin: 16px 0 4px; }
-    h2 { font-size: 17px; margin: 24px 0 8px; }
-    .muted { color: var(--muted); font-size: 13px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
-    .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid currentColor; }
-    .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
-    table { width: 100%; border-collapse: collapse; }
-    td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    ul.claims { padding-left: 18px; margin: 6px 0; }
-    ul.claims li { margin: 4px 0; }
-    .cite { color: var(--muted); font-size: 12px; white-space: nowrap; }
-    button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line);
-             background: var(--accent); color: #fff; cursor: pointer; }
-    button.secondary { background: transparent; color: var(--text); }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    textarea { width: 100%; font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--line);
-               background: var(--bg); color: var(--text); }
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
-    .table-scroll { overflow-x: auto; }
-  </style>
+  <title>{% block title %}Cases{% endblock %} | Case Assessment Assistant</title>
+  <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <header><div class="wrap">
-    <a href="/"><strong>Case Assessment Assistant</strong></a>
-    <span class="muted">{{ user.name }} &middot; {{ user.roles | sort | join(", ") }}</span>
-  </div></header>
-  <main class="wrap">
-    <p class="muted">Synthetic data only. AI drafts; people decide.</p>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="appbar">
+    <div class="appbar-inner">
+      <a class="product" href="/">Case Assessment Assistant</a>
+      <nav class="appnav" aria-label="Primary">
+        <a href="/" {% if nav == "cases" %}aria-current="page"{% endif %}>Cases</a>
+      </nav>
+      {% if user %}
+      <div class="account" aria-label="Signed in user">
+        <span class="name">{{ user.name }}</span>
+        <span class="roles">{{ user.roles | sort | join(", ") if user.roles else "No roles assigned" }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </header>
+  <div class="notice" role="note">
+    <div class="notice-inner"><b>Synthetic data only. AI drafts; people decide.</b> <span class="hide-sm secondary">Records in this environment are fictional.</span></div>
+  </div>
+  <main id="main" class="page">
     {% block content %}{% endblock %}
   </main>
+  <footer class="footer">Case Assessment Assistant, reference implementation on Azure</footer>
 </body>
 </html>

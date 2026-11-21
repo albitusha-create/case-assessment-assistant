@@ -1,5 +1,7 @@
 # Case Assessment Assistant
 
+[![ci](https://github.com/albitusha-create/case-assessment-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/albitusha-create/case-assessment-assistant/actions/workflows/ci.yml)
+
 An Azure-native reference implementation of an AI-assisted case assessment workflow for county human services and behavioral health programs. AI extracts facts with citations, drafts assessment sections, and checks drafts against a QA checklist. Staff review, edit and approve everything. **AI never makes clinical or eligibility decisions.**
 
 > This repo uses **synthetic data only**. It contains no real people, agencies or protected health information, and it is not a compliance certification.
@@ -15,6 +17,18 @@ Caseworkers spend hours reviewing large case files, writing assessment narrative
 3. **Drafting agent:** drafts the assessment sections. Every factual claim cites its source; missing information is stated as a gap, never filled in.
 4. **QA:** rule checks run in code (sections, required elements, citations, deadline, no determinations). The QA agent judges what code cannot (claims supported by their sources, conflicts named, safety concerns carried, person-first language, strengths). Severity comes from the checklist, never from the model, and an item the agent does not report fails.
 5. **Human review:** a caseworker runs the case; a supervisor approves or returns it with a comment. A supervisor may dismiss an AI-judged finding with a written reason. Rule failures cannot be dismissed. Every step lands in an append-only audit log.
+
+## Screenshots
+
+Synthetic case-003. Each draft statement links to the cited page of its source document; the QA report separates rule checks (cannot be dismissed) from AI reviewer findings (a supervisor may dismiss one with a documented reason).
+
+| Case list | Draft with the cited source page |
+| --- | --- |
+| ![Case list](docs/screenshots/cases.png) | ![Draft and source](docs/screenshots/draft-source.png) |
+
+| QA report with dismiss form | Returned for changes |
+| --- | --- |
+| ![QA report](docs/screenshots/qa-dismiss.png) | ![Returned](docs/screenshots/case-returned.png) |
 
 ## Design principle: deterministic rules, LLM judgment
 
@@ -34,7 +48,7 @@ See [docs/architecture.md](docs/architecture.md) for the component diagram and r
 | Azure Blob Storage | Uploaded documents |
 | Azure Cosmos DB | Cases, drafts and the append-only audit log |
 | Azure Container Apps | Runs the FastAPI app and UI |
-| Azure API Management | AI gateway: token limits and usage metrics |
+| Azure API Management (optional) | AI gateway: token limits and usage metrics. Off by default to save cost; turn on with `DEPLOY_APIM=true` |
 | Microsoft Entra ID, managed identity, Key Vault | Sign-in, roles, keyless service access |
 | Application Insights | Telemetry and traces |
 
@@ -48,7 +62,7 @@ See [docs/security-compliance.md](docs/security-compliance.md).
 
 The synthetic cases carry ground truth: the facts a careful reader should find (with document and page) and the elements each case deliberately leaves undocumented.
 
-- **Extraction recall** (`evals/extraction_recall.py`): share of planted facts found with the right element, document and page, and a count of facts that "fill" a planted gap. The gate is recall of at least 0.8 and zero false fills. Live runs score about 0.86 with zero false fills.
+- **Extraction recall** (`evals/extraction_recall.py`): share of planted facts found with the right element, document and page, and a count of facts that "fill" a planted gap. The gate is recall of at least 0.8 and zero false fills. The latest deploy run scored 0.92 with zero false fills.
 - **Deterministic checks** (unit tests): rules, citation resolution, fail-closed QA, the approval gate and the audit trail are tested without a model.
 - **CI gate:** the deploy workflow runs the recall eval and does not deploy if it fails.
 
