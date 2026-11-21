@@ -46,7 +46,10 @@ def make_client(store: MemoryStore, draft: Draft, blocking_fails: bool = False) 
         )
         return CaseRun(facts=facts, drafted=drafted, report=report(blocking_fails))
 
-    return TestClient(create_app(store=store, runner=runner))
+    app = create_app(store=store, runner=runner)
+    client = TestClient(app)
+    app.state.portal_http = client  # the portal client calls the in-app mock portal
+    return client
 
 
 def principal(name: str, *roles: str) -> dict[str, str]:
@@ -94,10 +97,12 @@ def test_run_then_approve_writes_the_audit_trail(store: MemoryStore, complete_dr
 
     events = client.get("/api/cases/case-002", headers=SUPERVISOR).json()["events"]
     assert [(e["actor"], e["action"]) for e in events] == [
+        ("casey", "portal_case_pulled"),
         ("casey", "run_started"),
         ("caa-drafting", "drafted"),
         ("caa-qa", "qa_completed"),
         ("sam", "approved"),
+        ("sam", "portal_draft_pushed"),
     ]
 
 
@@ -179,7 +184,7 @@ def test_supervisor_can_dismiss_an_agent_finding_then_approve(
     assert client.post("/cases/case-002/dismiss", headers=SUPERVISOR, data=form).status_code == 200
     assert client.post("/cases/case-002/approve", headers=SUPERVISOR).status_code == 200
 
-    actions = [(e.action, e.details) for e in store.events[-2:]]
+    actions = [(e.action, e.details) for e in store.events[-3:-1]]  # last one: portal push
     assert actions[0][0] == "finding_dismissed"
     assert actions[0][1]["reason"] == form["reason"]
     assert actions[1] == ("approved", {"dismissed_items": ["conflicts_named"]})

@@ -31,10 +31,16 @@ class Settings(BaseSettings):
     azure_cosmos_endpoint: str = ""
     azure_cosmos_database: str = "caa"
 
-    # Key that API clients send to the mock agency portal (a Key Vault secret in
-    # Azure). It stands in for the OAuth client credentials a real vendor would
-    # issue. Empty and local: the portal API accepts calls without a key.
+    # Key that API clients send to the mock agency portal. It stands in for the
+    # OAuth client credentials a real vendor would issue, and also signs the
+    # portal's webhooks. If empty: open when local, otherwise a random key is
+    # made at startup (the mock portal and its only client share the process).
     portal_api_key: str = ""
+    # Where our app reaches the portal API. The mock runs in this same container,
+    # so the default calls it over localhost, which also skips Easy Auth (that
+    # only guards traffic coming in through ingress). Point this at a real
+    # external system and the same client code is used.
+    portal_base_url: str = "http://127.0.0.1:8000"
 
     # Used only when environment is "local" and no Easy Auth header is present,
     # so you can click through the app on your machine with both roles.

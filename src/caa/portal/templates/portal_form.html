@@ -49,7 +49,7 @@
   {% endif %}
   {% for note in form.references.get(d.id, []) %}
   <div class="src">Reference for clinician: {{ note.text }}
-    {% for s in note.sources %}(<a href="/portal/cases/{{ case.case_id }}/documents/{{ s.doc_id }}#page={{ s.page }}">{{ s.doc_id }}, p. {{ s.page }}</a>){% endfor %}</div>
+    {% for s in note.sources %}(<a href="/portal/cases/{{ case.case_id }}/documents/{{ s.doc_id }}#page={{ s.page }}">{{ case.document(s.doc_id).title if case.document(s.doc_id) else s.doc_id }}, p. {{ s.page }}</a>){% endfor %}</div>
   {% endfor %}
 </fieldset>
 {% endfor %}
