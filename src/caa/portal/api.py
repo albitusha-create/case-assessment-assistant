@@ -12,7 +12,6 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from caa.config import Settings, get_settings
 from caa.portal.form import FormSchema
 from caa.portal.store import (
     DOCUMENTS_DIR,
@@ -24,6 +23,10 @@ from caa.portal.store import (
     PortalValidationError,
 )
 
+# The portal knows one API client: our assistant. A real portal would map each
+# issued credential to a registered client name.
+CLIENT_NAME = "Case Assessment Assistant"
+
 router = APIRouter(prefix="/portal/api/v1", tags=["agency portal (mock)"])
 
 
@@ -32,23 +35,23 @@ def get_portal(request: Request) -> PortalStore:
     return portal
 
 
-def api_client(
-    settings: Annotated[Settings, Depends(get_settings)],
-    authorization: Annotated[str, Header()] = "",
-) -> str:
-    """Checks the bearer key and returns the client's name for the form's history."""
-    if not settings.portal_api_key:
-        if settings.environment == "local":
-            return "local-client"
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Portal API key not configured")
+def api_client(request: Request, authorization: Annotated[str, Header()] = "") -> str:
+    """Checks the bearer key and returns the client's name for the form's history.
+
+    The key is set at startup (see `create_app`). An empty key means a local
+    run with no key configured, where the API is open for trying things out.
+    """
+    expected: str = request.app.state.portal_api_key
+    if not expected:
+        return CLIENT_NAME
     scheme, _, key = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not secrets.compare_digest(key, settings.portal_api_key):
+    if scheme.lower() != "bearer" or not secrets.compare_digest(key, expected):
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             "Missing or wrong API key",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return "api-client"
+    return CLIENT_NAME
 
 
 PortalDep = Annotated[PortalStore, Depends(get_portal)]
