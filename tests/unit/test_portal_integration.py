@@ -155,3 +155,35 @@ def test_client_sends_no_auth_header_without_a_key() -> None:
     PortalClient(http, "k3y").list_cases()
     assert "authorization" not in seen[0]
     assert seen[1]["authorization"] == "Bearer k3y"
+
+
+def test_case_page_shows_the_portal_status(store: MemoryStore, complete_draft: Draft) -> None:
+    client = make_client(store, complete_draft)
+    assert "Not sent" in client.get("/cases/case-001").text
+    approve_case(client)
+    page = client.get("/cases/case-001?tab=qa").text
+    assert "Pre-filled draft saved, waiting for the worker" in page
+    assert "Send to portal again" not in page
+
+    portal: PortalStore = client.app.state.portal  # type: ignore[attr-defined]
+    portal.submit("case-001", "casey", attested=True)
+    assert (
+        "Submitted by casey (0 of 6 pre-filled sections changed)"
+        in client.get("/cases/case-001").text
+    )
+
+
+def test_case_page_offers_a_retry_after_a_failed_send(
+    store: MemoryStore, complete_draft: Draft
+) -> None:
+    client = make_client(store, complete_draft)
+    good_http = client.app.state.portal_http  # type: ignore[attr-defined]
+    client.app.state.portal_http = httpx.Client(base_url="http://127.0.0.1:9", timeout=1)  # type: ignore[attr-defined]
+    approve_case(client)
+    page = client.get("/cases/case-001?tab=qa", headers=SUPERVISOR).text
+    assert "the portal could not be reached" in page
+    assert "Send to portal again" in page
+
+    client.app.state.portal_http = good_http  # type: ignore[attr-defined]
+    client.post("/cases/case-001/portal/push", headers=SUPERVISOR)
+    assert "waiting for the worker" in client.get("/cases/case-001").text
