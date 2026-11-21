@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     azure_cosmos_endpoint: str = ""
     azure_cosmos_database: str = "caa"
 
+    # Key that API clients send to the mock agency portal (a Key Vault secret in
+    # Azure). It stands in for the OAuth client credentials a real vendor would
+    # issue. Empty and local: the portal API accepts calls without a key.
+    portal_api_key: str = ""
+
     # Used only when environment is "local" and no Easy Auth header is present,
     # so you can click through the app on your machine with both roles.
     dev_user_name: str = "local-dev"
