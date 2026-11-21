@@ -24,7 +24,7 @@ Workers finish the assessment in their agency's case management system, not here
 
 ## Screenshots
 
-Synthetic case-003. Each draft statement links to the cited page of its source document; the QA report separates rule checks (cannot be dismissed) from AI reviewer findings (a supervisor may dismiss one with a documented reason).
+Synthetic case-003 in the assistant. Each draft statement links to the cited page of its source document; the QA report separates rule checks (cannot be dismissed) from AI reviewer findings (a supervisor may dismiss one with a documented reason).
 
 | Case list | Draft with the cited source page |
 | --- | --- |
@@ -33,6 +33,18 @@ Synthetic case-003. Each draft statement links to the cited page of its source d
 | QA report with dismiss form | Returned for changes |
 | --- | --- |
 | ![QA report](docs/screenshots/qa-dismiss.png) | ![Returned](docs/screenshots/case-returned.png) |
+
+### Agency portal integration
+
+The mock agency portal at `/portal` stands in for the system workers already use. After a supervisor approves case-001, the assistant saves a pre-filled draft of the portal's form over the REST API. The worker edits and submits it there, and the assistant's audit log records the submit.
+
+| Portal caseload | Pre-filled form with a source under each section |
+| --- | --- |
+| ![Portal caseload](docs/screenshots/portal-caseload.png) | ![Pre-filled portal form](docs/screenshots/portal-prefilled.png) |
+
+| Clinician sections get references, never pre-filled text | Audit log after the worker submits in the portal |
+| --- | --- |
+| ![Clinician references](docs/screenshots/portal-clinician.png) | ![Audit log](docs/screenshots/portal-audit.png) |
 
 ## Design principle: deterministic rules, LLM judgment
 
@@ -128,7 +140,7 @@ With the app running locally:
 - The portal API is at `/portal/api/v1` (schema at `/portal/api/v1/forms/core-assessment/schema`). With no `PORTAL_API_KEY` set locally, it needs no key.
 - Connect an MCP client to the tools: `http://127.0.0.1:8000/mcp` (Streamable HTTP; any MCP client that supports it, for example as a server named `agency-portal`)
 
-Demo flow: in the portal, open a case and show the empty form. In the assistant, run the case and approve it. Back in the portal, the form is a pre-filled draft with sources; edit a section, tick the attestation and submit. The assistant's audit log then shows the submit and how many pre-filled sections the worker changed.
+Demo flow (see the [portal screenshots](#agency-portal-integration)): in the portal, open a case and show the empty form. In the assistant, run the case and approve it. Back in the portal, the form is a pre-filled draft with sources; edit a section, tick the attestation and submit. The assistant's audit log then shows the submit and how many pre-filled sections the worker changed.
 
 ## Production next steps
 
