@@ -24,6 +24,8 @@ from caa.api.workflow import (
     return_for_changes,
     run_and_record,
 )
+from caa.integrations.portal_client import PortalClient
+from caa.integrations.portal_sync import PushError, pull_case, push_approved_draft
 from caa.storage.store import AuditEvent, Store
 from caa.synthetic import (
     SyntheticCase,
@@ -46,6 +48,12 @@ ACTION_LABELS = {
     "finding_dismissed": "AI finding dismissed",
     "approved": "Assessment approved",
     "returned": "Returned for changes",
+    "portal_case_pulled": "Case record read from agency portal",
+    "portal_pull_failed": "Agency portal could not be read",
+    "portal_draft_pushed": "Pre-filled form saved to agency portal",
+    "portal_push_rejected": "Agency portal refused the pre-filled form",
+    "portal_push_failed": "Agency portal could not be reached",
+    "submitted_in_portal": "Worker submitted the form in agency portal",
 }
 
 
@@ -74,6 +82,13 @@ def get_store(request: Request) -> Store:
 def get_runner(request: Request) -> CaseRunner:
     runner: CaseRunner = request.app.state.runner
     return runner
+
+
+def get_portal_client(request: Request) -> PortalClient:
+    return PortalClient(request.app.state.portal_http, request.app.state.portal_api_key)
+
+
+PortalClientDep = Annotated[PortalClient, Depends(get_portal_client)]
 
 
 def known_case(case_id: str) -> SyntheticCase:
@@ -168,8 +183,10 @@ def run(
     case: CaseDep,
     store: StoreDep,
     runner: Annotated[CaseRunner, Depends(get_runner)],
+    portal: PortalClientDep,
     user: Annotated[User, Depends(require_role(CASEWORKER))],
 ) -> RedirectResponse:
+    pull_case(store, portal, case.case_id, user)
     try:
         run_and_record(store, runner, case, user)
     except WorkflowError as exc:
@@ -179,13 +196,33 @@ def run(
 
 @router.post("/cases/{case_id}/approve")
 def approve_draft(
-    case: CaseDep, store: StoreDep, user: Annotated[User, Depends(require_role(SUPERVISOR))]
+    case: CaseDep,
+    store: StoreDep,
+    portal: PortalClientDep,
+    user: Annotated[User, Depends(require_role(SUPERVISOR))],
 ) -> RedirectResponse:
     try:
         approve(store, case.case_id, user)
     except WorkflowError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    # The worker reviews and submits it in the portal; we only save a draft there.
+    push_approved_draft(store, portal, case, user)
     return back_to_case(case.case_id, "qa")
+
+
+@router.post("/cases/{case_id}/portal/push")
+def push_to_portal(
+    case: CaseDep,
+    store: StoreDep,
+    portal: PortalClientDep,
+    user: Annotated[User, Depends(require_role(SUPERVISOR))],
+) -> RedirectResponse:
+    """Retry sending an approved draft, for example after the portal was down."""
+    try:
+        push_approved_draft(store, portal, case, user)
+    except PushError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return back_to_case(case.case_id, "audit")
 
 
 @router.post("/cases/{case_id}/dismiss")
