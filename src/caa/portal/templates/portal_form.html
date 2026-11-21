@@ -1,0 +1,64 @@
+{% extends "portal_base.html" %}
+{% block title %}Core Assessment {{ case.case_number }}{% endblock %}
+{% block content %}
+{% set locked = form.status == "submitted" %}
+<h1>Core Assessment: {{ case.client_name }} ({{ case.case_number }})</h1>
+<div class="row">Status: <span class="status">{{ form.status.replace("_", " ").title() }}</span>
+  {% if form.submitted_at %} by {{ form.submitted_by }} on {{ form.submitted_at.strftime("%m/%d/%Y %H:%M") }} UTC{% endif %}
+  | <a href="/portal/cases/{{ case.case_id }}">Back to case</a></div>
+{% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
+{% if form.prefilled_by and not locked %}
+<div class="notice"><b>Pre-filled by {{ form.prefilled_by }}</b> on {{ form.prefilled_at.strftime("%m/%d/%Y %H:%M") }} UTC from documents in this case.
+  Review every field before submitting. You can edit or clear anything. Sources are shown under each pre-filled field.</div>
+{% endif %}
+{% if form.ask_in_interview and not locked %}
+<div class="notice"><b>Ask in the interview:</b> the case records do not cover
+  {% for d in form.ask_in_interview %}{{ schema.domain(d).title }}{% if not loop.last %}; {% endif %}{% endfor %}.</div>
+{% endif %}
+<form method="post" action="/portal/cases/{{ case.case_id }}/assessment">
+<fieldset {% if locked %}disabled{% endif %}>
+  <legend>Section 1. Assessment Information</legend>
+  <div class="row"><label>Type of assessment</label><br>
+    {% for key, label in schema.assessment_types.items() %}
+    <input type="radio" name="assessment_type" value="{{ key }}" id="t-{{ key }}" {% if form.header.assessment_type == key %}checked{% endif %}> <span>{{ label }}</span><br>
+    {% endfor %}</div>
+  <div class="row"><input type="checkbox" name="abbreviated" id="abbr" {% if form.header.abbreviated %}checked{% endif %}> <label for="abbr">This is an abbreviated assessment</label>
+    <div class="hint">Use only when the person's health limits what can be gathered, they choose not to share, or they want only a specific service. Explain which applies.</div>
+    <textarea name="abbreviated_reason" rows="2">{{ form.header.abbreviated_reason }}</textarea></div>
+  <div class="row"><label>Date started</label> <input type="date" name="date_started" value="{{ form.header.date_started or '' }}">
+    &nbsp; <label>Date completed</label> <input type="date" name="date_completed" value="{{ form.header.date_completed or '' }}"></div>
+  <div class="row"><label>Meeting dates</label> <input type="text" name="meeting_dates" size="40" value="{{ form.header.meeting_dates }}"></div>
+  <div class="row"><input type="checkbox" name="outside_provider" id="outside" {% if form.header.outside_provider %}checked{% endif %}> <label for="outside">Completed by an outside provider</label></div>
+  <div class="row"><label>Information sources</label><br>
+    {% for s in schema.information_sources %}
+    <input type="checkbox" name="information_sources" value="{{ s.id }}" id="s-{{ s.id }}" {% if s.id in form.header.information_sources %}checked{% endif %}> <span>{{ s.label }}</span><br>
+    {% endfor %}
+    <textarea name="sources_detail" rows="2">{{ form.header.sources_detail }}</textarea></div>
+  <div class="row"><label>Preferred name</label> <input type="text" name="preferred_name" value="{{ form.header.preferred_name }}">
+    &nbsp; <label>Pronouns</label> <input type="text" name="pronouns" value="{{ form.header.pronouns }}"></div>
+</fieldset>
+{% for d in schema.domains %}
+{% set entry = form.domains.get(d.id) %}
+<fieldset {% if locked %}disabled{% endif %} {% if d.filled_by == "clinician" %}class="clin"{% endif %}>
+  <legend>Section {{ loop.index + 1 }}. {{ d.title }}{% if d.filled_by == "clinician" %} (clinician completes){% endif %}</legend>
+  <div class="hint">{{ d.guidance }}</div>
+  <textarea name="domain_{{ d.id }}" rows="4">{{ entry.text if entry else "" }}</textarea>
+  {% if entry and entry.sources %}
+  <div class="src">Source{% if entry.origin == "worker" %} (field edited by {{ entry.updated_by }} since pre-fill){% endif %}:
+    {% for s in entry.sources %}<a href="/portal/cases/{{ case.case_id }}/documents/{{ s.doc_id }}#page={{ s.page }}">{{ case.document(s.doc_id).title if case.document(s.doc_id) else s.doc_id }}, p. {{ s.page }}</a>{% if not loop.last %}; {% endif %}{% endfor %}</div>
+  {% endif %}
+  {% for note in form.references.get(d.id, []) %}
+  <div class="src">Reference for clinician: {{ note.text }}
+    {% for s in note.sources %}(<a href="/portal/cases/{{ case.case_id }}/documents/{{ s.doc_id }}#page={{ s.page }}">{{ s.doc_id }}, p. {{ s.page }}</a>){% endfor %}</div>
+  {% endfor %}
+</fieldset>
+{% endfor %}
+{% if not locked %}
+<div class="buttons">
+  <input type="checkbox" name="attest" id="attest"> <label for="attest">I have reviewed this assessment with the person and it is accurate to the best of my knowledge.</label><br><br>
+  <button type="submit" name="action" value="save">Save Draft</button>
+  <button type="submit" name="action" value="submit">Submit Assessment</button>
+</div>
+{% endif %}
+</form>
+{% endblock %}

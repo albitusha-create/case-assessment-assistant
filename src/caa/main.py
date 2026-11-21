@@ -15,6 +15,9 @@ from caa.agents.pipeline import CaseRun, Services, run_case, services_from_setti
 from caa.api.routes import router
 from caa.api.workflow import CaseRunner
 from caa.config import get_settings
+from caa.portal import api as portal_api
+from caa.portal import pages as portal_pages
+from caa.portal.store import PortalStore
 from caa.storage.store import CosmosStore, MemoryStore, Store
 from caa.synthetic import SyntheticCase
 
@@ -39,11 +42,17 @@ def default_runner() -> CaseRunner:
     return runner
 
 
-def create_app(store: Store | None = None, runner: CaseRunner | None = None) -> FastAPI:
+def create_app(
+    store: Store | None = None,
+    runner: CaseRunner | None = None,
+    portal: PortalStore | None = None,
+) -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name, version=__version__)
     app.state.store = store or default_store()
     app.state.runner = runner or default_runner()
+    # The mock agency portal runs in the same container but keeps its own state.
+    app.state.portal = portal or PortalStore.seeded()
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
@@ -51,4 +60,6 @@ def create_app(store: Store | None = None, runner: CaseRunner | None = None) -> 
         return {"status": "ok", "version": __version__}
 
     app.include_router(router)
+    app.include_router(portal_api.router)
+    app.include_router(portal_pages.router)
     return app

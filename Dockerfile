@@ -10,6 +10,8 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY src ./src
 COPY criteria ./criteria
 COPY data/synthetic/source ./data/synthetic/source
+# The mock agency portal serves these synthetic PDFs as case attachments.
+COPY data/synthetic/cases ./data/synthetic/cases
 RUN uv sync --frozen --no-dev
 
 RUN useradd --uid 10001 --no-create-home appuser

@@ -4,11 +4,13 @@
 .env
 tests
 evals
-# The app reads only the synthetic cases' metadata (case.json).
+# The app reads the synthetic cases' metadata (case.json) and the mock portal
+# serves their PDFs.
 data/*
 !data/synthetic
 data/synthetic/*
 !data/synthetic/source
+!data/synthetic/cases
 docs
 infra
 **/__pycache__

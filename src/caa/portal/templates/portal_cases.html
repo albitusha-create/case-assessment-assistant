@@ -1,0 +1,18 @@
+{% extends "portal_base.html" %}
+{% block title %}My Caseload{% endblock %}
+{% block content %}
+<h1>My Caseload</h1>
+<table class="grid">
+  <tr><th>Case #</th><th>Client</th><th>Program</th><th>Worker</th><th>Assessment Due</th><th>Core Assessment</th></tr>
+  {% for case, form in rows %}
+  <tr>
+    <td><a href="/portal/cases/{{ case.case_id }}">{{ case.case_number }}</a></td>
+    <td>{{ case.client_name }}</td>
+    <td>{{ case.program }}</td>
+    <td>{{ case.assigned_worker }}</td>
+    <td>{{ case.assessment_due.strftime("%m/%d/%Y") }}{% if case.assessment_due < today and form.status != "submitted" %} <b style="color:#b00">OVERDUE</b>{% endif %}</td>
+    <td><a href="/portal/cases/{{ case.case_id }}/assessment">{{ form.status.replace("_", " ").title() }}</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
