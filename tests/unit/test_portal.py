@@ -228,7 +228,7 @@ def test_worker_pages_render_and_submit(client: TestClient) -> None:
     assert "My Caseload" in client.get("/portal").text
     assert "Attached Documents" in client.get("/portal/cases/case-001").text
     page = client.get("/portal/cases/case-001/assessment").text
-    assert "Pre-filled by api-client" in page
+    assert "Pre-filled by Case Assessment Assistant" in page
     assert "Intake Note, p. 2" in page
     assert "Ask in the interview" in page
 

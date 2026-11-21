@@ -5,9 +5,11 @@ in-memory fakes. With no arguments it uses Cosmos DB when an endpoint is set,
 and builds the Azure clients the first time a case is run.
 """
 
+import secrets
 from datetime import date
 from pathlib import Path
 
+import httpx
 from azure.identity import DefaultAzureCredential
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -18,9 +20,11 @@ from caa.agents.pipeline import CaseRun, Services, run_case, services_from_setti
 from caa.api.routes import html_or_json_error, router
 from caa.api.workflow import CaseRunner
 from caa.config import get_settings
+from caa.integrations import portal_webhook
 from caa.portal import api as portal_api
 from caa.portal import pages as portal_pages
 from caa.portal.store import PortalStore
+from caa.portal.webhooks import webhook_sender
 from caa.storage.store import CosmosStore, MemoryStore, Store
 from caa.synthetic import SyntheticCase
 
@@ -55,7 +59,15 @@ def create_app(
     app.state.store = store or default_store()
     app.state.runner = runner or default_runner()
     # The mock agency portal runs in the same container but keeps its own state.
+    # Our app reaches it only over HTTP, through `portal_http`, like any vendor API.
     app.state.portal = portal or PortalStore.seeded()
+    app.state.portal_api_key = settings.portal_api_key or (
+        "" if settings.environment == "local" else secrets.token_urlsafe(32)
+    )
+    app.state.portal_http = httpx.Client(base_url=settings.portal_base_url, timeout=10)
+    app.state.portal.listeners.append(
+        webhook_sender(lambda: app.state.portal_http, app.state.portal_api_key)
+    )
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
@@ -68,4 +80,5 @@ def create_app(
     app.include_router(router)
     app.include_router(portal_api.router)
     app.include_router(portal_pages.router)
+    app.include_router(portal_webhook.router)
     return app

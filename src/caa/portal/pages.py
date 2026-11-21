@@ -12,6 +12,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from caa.api.auth import CASEWORKER, User, current_user, require_role
 from caa.portal.api import PortalDep, document_path, found
@@ -105,7 +106,11 @@ async def save_assessment(
         domains = {d.id: text(f"domain_{d.id}") for d in portal.schema.domains}
         portal.worker_save(case_id, user.name, header, domains)
         if text("action") == "submit":
-            portal.submit(case_id, user.name, attested=text("attest") == "on")
+            # Submit notifies webhook subscribers over HTTP. Run it off the event
+            # loop so a subscriber in this same app can answer the call.
+            await run_in_threadpool(
+                portal.submit, case_id, user.name, attested=text("attest") == "on"
+            )
             return to_form(case_id, "Assessment submitted.")
     except (PortalConflict, PortalValidationError, ValueError) as exc:
         return to_form(case_id, str(exc))
