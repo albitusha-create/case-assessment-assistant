@@ -21,6 +21,7 @@ class SyntheticCase(BaseModel):
     case_id: str
     assessment_type: str
     start_date: date
+    summary: str = ""
     # Elements the case deliberately leaves undocumented (planted gaps).
     absent_elements: list[str] = []
     expected_facts: list[ExpectedFact]

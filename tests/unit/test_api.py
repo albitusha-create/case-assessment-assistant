@@ -221,3 +221,27 @@ def test_page_shows_dismiss_form_for_agent_findings(
     page = client.get("/cases/case-002", headers=SUPERVISOR).text
     assert 'action="/cases/case-002/dismiss"' in page
     assert "AI judged" in page
+
+
+def test_citation_and_avatar_labels() -> None:
+    from caa.api.routes import doc_label, initials
+
+    assert doc_label("02-home-health-note") == "Home health note"
+    assert initials("Pat Doe") == "PD"
+    assert initials("") == "?"
+
+
+def test_case_page_shows_dismiss_form_and_return_comment(
+    store: MemoryStore, complete_draft: Draft
+) -> None:
+    client = make_client(store, complete_draft, blocking_fails=True)
+    client.post("/cases/case-002/run", headers=CASEWORKER)
+
+    page = client.get("/cases/case-002", headers=SUPERVISOR).text
+    assert "Dismiss with a reason" in page
+    assert "Approval is blocked by 1 item" in page
+
+    client.post("/cases/case-002/return", headers=SUPERVISOR, data={"comment": "Confirm guardian."})
+    page = client.get("/cases/case-002", headers=SUPERVISOR).text
+    assert "Returned for changes by sam" in page
+    assert "Confirm guardian." in page
