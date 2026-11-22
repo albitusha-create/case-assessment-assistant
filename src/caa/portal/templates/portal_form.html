@@ -61,4 +61,10 @@
 </div>
 {% endif %}
 </form>
+{% if not locked %}
+{# Extension point: the agency system hosts the assistant's panel script, like a
+   sidebar app from a vendor. The script adds a check button to each section the
+   assistant may review; the portal's own form and rules are unchanged. #}
+<script src="/static/portal-assistant.js" data-case-id="{{ case.case_id }}" defer></script>
+{% endif %}
 {% endblock %}

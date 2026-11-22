@@ -54,6 +54,8 @@ ACTION_LABELS = {
     "portal_push_rejected": "Agency portal refused the pre-filled form",
     "portal_push_failed": "Agency portal could not be reached",
     "submitted_in_portal": "Worker submitted the form in agency portal",
+    "portal_section_checked": "Worker checked a portal section with the assistant",
+    "portal_suggestion_inserted": "Worker inserted a suggested fact in the portal",
 }
 
 
